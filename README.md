@@ -4,11 +4,7 @@ A sleek, responsive mobile portfolio application built with React Native and Exp
 
 ---
 
-## 📸 Project Previews
-
-| iOS Layout | Android Layout |
-|:---:|:---:|
-| <img src="./assets/screenshots/ios-preview.png" width="280" alt="iOS Home Screen"/> | <img src="./assets/screenshots/android-preview.png" width="280" alt="Android Projects Screen"/> |
+## Live at: AbigailSutrich.com
 
 ---
 
