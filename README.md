@@ -1,20 +1,22 @@
 # 📱 React Native Cross-Platform Portfolio
 
-A sleek, responsive mobile portfolio application built with React Native and Expo. This project showcases my mobile development capabilities, custom navigation structures, and fluid component layouts across iOS and Android device screen sizes.
+A high-performance, cross-platform portfolio application engineered with React Native, Expo, and React Native for Web. This project features custom gesture-driven physics engines, and a real-time Markdown document reader across iOS, Android, and Desktop Browser layouts.
 
 ---
 
-## Live at: AbigailSutrich.com
+# Live at: [AbigailSutrich.com](https://AbigailSutrich.com)
 
 ---
 
 ## 🛠️ Built With
 
-- **Framework:** [React Native](https://reactnative.dev) (Component-driven architecture)
-- **Workflow Tool:** [Expo Workflow](https://expo.dev) (SDK 51+)
-- **Navigation:** [@react-navigation/bottom-tabs](https://reactnavigation.org)
-- **Design System:** StyleSheet API (Flexible box models)
-- **Icons:** [@expo/vector-icons](https://expo.fyi)
+- **Core Framework:** [React Native](https://reactnative.dev) & [React Native for Web](https://github.io) (Single codebase compilation for Mobile + Desktop browsers)
+- **Workflow & Build Tool:** [Expo Workflow](https://expo.dev) (SDK 51+)
+- **High-Performance Physics & Animation:** 
+  - [React Native Reanimated](https://swmansion.com) (Damped harmonic spring oscillators and native-thread `useFrameCallback` loops)
+  - [React Native Gesture Handler](https://swmansion.com) (Low-latency native `Pan` and `Tap` tracking)
+- **Routing & Navigation:** [@react-navigation/bottom-tabs](https://reactnavigation.org)
+- **Document Rendering:** [React Native Markdown Display](https://github.com) (Native node primitive layout engine)
 
 ---
 

@@ -14,7 +14,12 @@ const Tab = createBottomTabNavigator();
 export default function App() {
   return (
     <GestureHandlerRootView style={{flex:1}}>
-      <NavigationContainer>
+      <NavigationContainer
+        documentTitle={{
+          formatter: (options, route) =>
+            route ? `Abigail Sutrich | ${route.name}` : `Abigail Sutrich`,
+        }}
+      >
         <Tab.Navigator
           screenOptions={({ route }) => ({
             tabBarIcon: ({ color, size }) => {
