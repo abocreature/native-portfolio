@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View, Image, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, Image, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -163,8 +163,101 @@ export default function AboutScreen() {
         };
     });
 
+    // State for the current time and weather data    
+    const LATITUDE = '35.8212';
+    const LONGITUDE = '-82.6027';
+    const [currentTime, setCurrentTime] = useState('');
+    const [weatherData, setWeatherData] = useState(null);
+    const [isWeatherLoading, setIsWeatherLoading] = useState(true);
+
+    // Make clock work
+    useEffect(() => {
+        const updateClock = () => {
+            const now = new Date();
+            setCurrentTime(
+                now.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true,
+                })
+            );
+        };
+
+        updateClock(); // Initial call to set the time immediately
+        const timerId = setInterval(updateClock, 1000); // Update every second
+        return () => clearInterval(timerId);
+    }, []);
+
+    // Grabs weather data using Open-Meteo API
+    useEffect(() => {
+        let isMounted = true; // To prevent state updates if the component unmounts
+
+        const fetchWeatherData = async () => {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=temperature_2m,is_day,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York`;
+
+            try {
+                const response = await fetch(url);
+                if (response.ok && isMounted) {
+                    const json = await response.json();
+                    const current = json.current;
+
+                    // Open-Meteo uses WMO Weather Interpretation Codes (0 = Clear, 1 = Mainly Clear, 2 = Partly Cloudy, 3 = Overcast, 45 = Fog, 48 = Depositing Rime Fog, 51 = Drizzle Light, 53 = Drizzle Moderate, 55 = Drizzle Dense, 56 = Freezing Drizzle Light, 57 = Freezing Drizzle Dense, 61 = Rain Slight, 63 = Rain Moderate, 65 = Rain Heavy, 66 = Freezing Rain Light, 67 = Freezing Rain Heavy, 71 = Snow Fall Slight, 73 = Snow Fall Moderate, 75 = Snow Fall Heavy, 77 = Snow Grains, 80 = Rain Showers Slight, 81 = Rain Showers Moderate, 82 = Rain Showers Violent, 85 = Snow Showers Slight, 86 = Snow Showers Heavy)
+                    const code = current.weather_code;
+                    let conditionText = 'Clear';
+                    if (code >= 1 && code <= 3) conditionText = 'Cloudy';
+                    else if (code >= 45 && code <= 48) conditionText = 'Foggy';
+                    else if (code >= 49 && code <= 50) conditionText = 'Freezing Fog';
+                    else if (code >= 51 && code <= 57) conditionText = 'Drizzle';
+                    else if (code >= 61 && code <= 67) conditionText = 'Rainy';
+                    else if (code >= 71 && code <= 77) conditionText = 'Snowy';
+                    else if (code >= 80 && code <= 86) conditionText = 'Showers';
+                    else if (code >= 95 && code <= 99) conditionText = 'Thunderstorm';
+
+                    setWeatherData({
+                        tempF: Math.round(current.temperature_2m),
+                        conditionText: conditionText,
+                        isDay: current.is_day === 1,
+                    });
+                } else {
+                    console.error('Open-Meteo server error code:', response.status);
+                }
+            } catch (error) {
+                console.error('Failed to parse stream:', error);
+            } finally {
+                if (isMounted) {
+                    setIsWeatherLoading(false);
+                }
+            }
+        };
+
+        fetchWeatherData();
+        const weatherInterval = setInterval(fetchWeatherData, 5*60*1000); // Refresh every five minutes
+        return () => {
+            isMounted = false; // Prevent state updates if the component unmounts
+            clearInterval(weatherInterval);
+        };
+    }, []);
+
     return (
         <View style={styles.container}>
+            <View style={styles.backgroundWeatherWidget}>
+                <Text selectable={false} style={styles.bgTitle}> Asheville, NC </Text>
+                <Text selectable={false} style={styles.bgClock}> {currentTime || '--:--:--'} </Text>
+
+                <View style={styles.bgWeatherWrapper}>
+                    {isWeatherLoading ? (
+                        <ActivityIndicator size="small" color="#58a6ff" />
+                    ) : weatherData ? (
+                        <Text selectable={false} style={styles.bgWeatherText}>
+                            {weatherData.isDay ? '☀️' : '🌙'} {weatherData.tempF}°F • {weatherData.conditionText}
+                        </Text>
+                    ) : (
+                        <Text selectable={false} style={styles.bgErrorText}>⚠️ Weather Offline</Text>
+                    )}
+                </View>
+            </View>
+
             <GestureDetector gesture={panGesture}>
                 <Animated.View style={[styles.card, animatedStyle]}>
                     <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
@@ -179,7 +272,7 @@ export default function AboutScreen() {
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
-        backgroundColor: '#f0f2f5', 
+        backgroundColor: '#a1a1a1', 
         justifyContent: 'center', 
         alignItems: 'center',
         userSelect: 'none'
@@ -194,6 +287,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1, 
         shadowRadius: 10, 
         elevation: 5,
+        zIndex: 1000,
         justifyContent: 'center',
         cursor: 'grab'
     },
@@ -215,5 +309,42 @@ const styles = StyleSheet.create({
         marginTop: 5,
         justifyContent: 'center',
         textAlign: 'center'
-    }
+    },
+    backgroundWeatherWidget: {
+        position: 'absolute',
+        top: 24,
+        left: 24,
+        zIndex: 1,
+        backgroundColor: 'rgba(22, 27, 34, 0.4)',
+        padding: 14,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#30363d',
+        minWidth: 180,
+    },
+    bgTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#c9d1d9',
+        fontFamily: 'monospace',
+    },
+    bgClock: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#c9d1d9',
+        marginVertical: 4, fontFamily: 'monospace',
+    },
+    bgWeatherWrapper: {
+        marginTop: 2, alignItems: 'flex-start' ,
+    },
+    bgWeatherText: {
+        fontSize: 13,
+        color: '#c9d1d9',
+        fontFamily: 'monospace',
+    },
+    bgErrorText: {
+        fontSize: 11,
+        color: '#f85149',
+        fontFamily: 'monospace',
+    },
 });

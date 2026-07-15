@@ -9,7 +9,8 @@ import {
     ScrollView,
     ActivityIndicator,
     SafeAreaView, 
-    Linking 
+    Linking,
+    useWindowDimensions
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Markdown from 'react-native-markdown-display';
@@ -100,10 +101,16 @@ function AnimatedButton ({ onPress, children, activeBg, hoverBg, defaultBg, bord
 
 // Main view component
 export default function ProjectsScreen() {
+    const { width: windowWidth } = useWindowDimensions();
+
+    // Use a side-by-side configuration only on wider screens (e.g., tablets or desktops)
+    const isLargeScreen = windowWidth > 768;
+
     const [modalVisible, setModalVisible] = useState(false);
     const [markdownContent, setMarkdownContent] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [activeRepoName, setActiveRepoName] = useState('');
+    const [hasSelectedRepo, setHasSelectedRepo] = useState(false);
 
     // Downloads the readme as a string from server endpoints
     const fetchReadme = async (rawOwner, rawRepo) => {
@@ -112,7 +119,7 @@ export default function ProjectsScreen() {
         const repo = String(rawRepo).trim();
         setIsLoading(true);
         setActiveRepoName(repo);
-        setModalVisible(true);
+        setHasSelectedRepo(true);
 
         const primaryURL = `https://raw.githubusercontent.com/${owner}/${repo}/main/README.md`;
         const fallbackURL = `https://raw.githubusercontent.com/${owner}/${repo}/master/README.md`;
@@ -139,68 +146,79 @@ export default function ProjectsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <FlatList
-                data={PROJECT_DATA}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.projectCard}>
-                        <Text style={styles.projectTitle}>{item.title}</Text>
-                        <Text style={styles.projectTech}>{item.tech}</Text>
+            <View style={[styles.layoutWrapper, { flexDirection: isLargeScreen ? 'row' : 'column' }]}>
+                <View style={[styles.leftColumn, { marginRight: isLargeScreen ? 16 : 0 }]}>
+                    <FlatList
+                        data={PROJECT_DATA}
+                        keyExtractor={item => item.id}
+                        renderItem={({ item }) => (
+                            <View style={styles.projectCard}>
+                                <Text style={styles.projectTitle}>{item.title}</Text>
+                                <Text style={styles.projectTech}>{item.tech}</Text>
 
-                        <View style={styles.buttonRow}>
-                            <AnimatedButton 
-                                onPress={() => Linking.openURL(item.link)}
-                                defaultBg="#238636"
-                                hoverBg="#2ea44f"
-                                activeBg="#247233"
-                                defaultBorder="#2ea44f"
-                            >
-                                <Text style={styles.btnText}>Open GitHub Repository</Text>
-                            </AnimatedButton>
+                                <View style={styles.buttonRow}>
+                                    <AnimatedButton 
+                                        onPress={() => Linking.openURL(item.link)}
+                                        defaultBg="#238636"
+                                        hoverBg="#2ea44f"
+                                        activeBg="#247233"
+                                        defaultBorder="#2ea44f"
+                                    >
+                                        <Text style={styles.btnText}>Open GitHub Repository</Text>
+                                    </AnimatedButton>
 
-                            <AnimatedButton 
-                                onPress={() => fetchReadme(item.owner, item.repo)}
-                                defaultBg="#1f6feb"
-                                hoverBg="#4690ff"
-                                activeBg="#2463c2"
-                                defaultBorder="#4690ff"
-                            >
-                                <Text style={styles.btnText}>Read Documentation</Text>
-                            </AnimatedButton>
+                                    <AnimatedButton 
+                                        onPress={() => fetchReadme(item.owner, item.repo)}
+                                        defaultBg="#1f6feb"
+                                        hoverBg="#4690ff"
+                                        activeBg="#2463c2"
+                                        defaultBorder="#4690ff"
+                                    >
+                                        <Text style={styles.btnText}>Read Documentation</Text>
+                                    </AnimatedButton>
+                                </View>
+                            </View>
+                        )}
+                    />
+                </View>
+
+                <View style={styles.rightColumn}>
+                    {!hasSelectedRepo ? (
+                        <View style={styles.centeredView}>
                         </View>
-                    </View>
-                )}
-            />
-
-            // Dynamic readme viewer
-            <Modal
-                animationType="slide"
-                transparent={false}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <SafeAreaView style={styles.modalContainer}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalHeaderTitle}>{activeRepoName} / README</Text>
-                        <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
-                            <Text style={styles.closeBtnText}>X Close</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {isLoading ? (
+                    ) : isLoading ? (
                         <View style={styles.centeredView}>
                             <ActivityIndicator size="large" color="#007AFF" />
                             <Text style={styles.loadingText}>Fetching from GitHub...</Text>
                         </View>
                     ) : (
-                        <ScrollView contentContainerStyle={styles.markdownScroll}>
-                            <Markdown style={markdownStyles}>
-                                {markdownContent}
-                            </Markdown>
-                        </ScrollView>
+                        <View style={styles.readmeContainer}>
+                            <View Style={styles.readmeHeader}>
+                                <View style={styles.readmeHeaderTitleContainer}>
+                                    <Text style={styles.readmeHeaderTitle}> {activeRepoName} / README.md</Text>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.closeBtn}
+                                    onPress={() => {
+                                        setHasSelectedRepo(false);
+                                        setActiveRepoName('');
+                                        setMarkdownContent('');
+                                    }}
+                                >
+                                    <Text style={styles.closeBtnText}>X Close</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <ScrollView contentContainerStyle={styles.markdownScroll}>
+                                <Markdown style={markdownStyles}>
+                                    {markdownContent}
+                                </Markdown>
+                            </ScrollView>
+                        </View>
                     )}
-                </SafeAreaView>
-            </Modal>
+                </View>
+
+            </View>
         </SafeAreaView>
     );
 }
@@ -211,6 +229,20 @@ const styles = StyleSheet.create({
         backgroundColor: '#0d1117',
         padding: 16,
     },
+    layoutWrapper: {
+        flex: 1,
+        padding: 16
+    },
+
+    leftColumn: {
+        flex: 2
+    },
+    rightColumn: {
+        flex: 3,
+        backgroundColor: '#161b22',
+        overflow: 'hidden',
+    },
+
     projectCard: {
         backgroundColor: '#161b22',
         padding: 20,
@@ -260,45 +292,71 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
 
-    modalContainer: {
-        flex: 1,
-        backgroundColor: '#0d1117',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#30363d',
-        backgroundColor: '#161b22',
-    },
-    modalHeaderTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#c9d1d9',
-    },
     closeBtn: {
+        position: 'absolute',
+        right: 16,
+        top: '50%',
+        transform: [{ translateY: -15 }],
         backgroundColor: '#21262d',
         borderWidth: 1,
         borderColor: '#30363d',
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 6,
+        cursor: 'pointer',
+        flexShrink: 0,
     },
     closeBtnText: {
         color: '#f85149',
         fontWeight: '600',
+        fontSize: 13,
     },
 
+    readmeContainer: {
+        flex: 1,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#30363d',
+    },
+    readmeHeaderTitleContainer: {
+        flex: 1,
+        marginRight: 12,
+        justifyContent: 'center',
+    },
+    readmeHeader: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#30363d',
+        backgroundColor: '#1f242c',
+        flexWrap: 'nowrap',
+    },
+    readmeHeaderTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#c9d1d9',
+        fontFamily: 'monospace',
+    },
     markdownScroll: {
         padding: 24,
     },
+
     centeredView: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#0d1117',
+    },
+    placeholderText: {
+        color: '#8b949e',
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 20,
+        maxWidth: 300,
     },
     loadingText: {
         marginTop: 12,
