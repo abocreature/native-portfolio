@@ -21,6 +21,8 @@ import Animated, {
     interpolateColor,
 } from 'react-native-reanimated';
 
+import ProjectChatBot from '../components/ProjectChatBot';
+
 const PROJECT_DATA = [
     {
         id: '1',
@@ -219,6 +221,7 @@ export default function ProjectsScreen() {
                 </View>
 
             </View>
+            <ProjectChatBot />
         </SafeAreaView>
     );
 }

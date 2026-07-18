@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Analytics } from '@vercel/analytics/react';
 
 import AboutScreen from './src/screens/AboutScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
@@ -32,10 +33,11 @@ export default function App() {
             headerTintColor: '#fff',
           })}
           >
-            <Tab.Screen name="About" component={AboutScreen} />
-            <Tab.Screen name="Projects" component={ProjectsScreen} />
-          </Tab.Navigator>
+          <Tab.Screen name="About" component={AboutScreen} />
+          <Tab.Screen name="Projects" component={ProjectsScreen} />
+        </Tab.Navigator>
       </NavigationContainer>
+      <Analytics />
     </GestureHandlerRootView>
   );
 }
