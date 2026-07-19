@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Image, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     useSharedValue,
+    useDerivedValue,
     useAnimatedStyle,
     withDecay,
     withClamp,
     withSpring,
     useFrameCallback
 } from 'react-native-reanimated';
+import { DynamicSunbeamBackground } from '../components/DynamicSunbeamBackground';
 
 export default function AboutScreen() {
     // Grabbing the realtime screen dimensions
@@ -29,6 +31,8 @@ export default function AboutScreen() {
     const maxX = screenWidth /2 - CARD_WIDTH / 2;
     const minY = -screenHeight / 2 + CARD_HEIGHT / 2 + headerHeight;
     const maxY = screenHeight / 2 - CARD_HEIGHT / 2 - bottomBarHeight;
+
+    const VISUAL_Y_OFFSET = headerHeight - bottomBarHeight; // Calculating the collision offset for the card
 
     // Tracking the position, velocity, and if it's being dragged
     const translateX = useSharedValue(0);
@@ -150,23 +154,13 @@ export default function AboutScreen() {
             velocityX.value = event.velocityX / 60;
             velocityY.value = event.velocityY / 60;
         });
-    
-    // Mapping the shared values into the standard UI transform styles
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                { translateX: translateX.value },
-                { translateY: translateY.value },
-                { scaleX: scaleX.value },
-                { scaleY: scaleY.value }
-            ]
-        };
-    });
 
     // State for the current time and weather data    
     const LATITUDE = '35.8212';
     const LONGITUDE = '-82.6027';
+    const [targetTimezone, setTargetTimezone] = useState('America/New_York'); //fallback to local timezone
     const [currentTime, setCurrentTime] = useState('');
+    const [currentHour, setCurrentHour] = useState(new Date().getHours()); //fallback to local time
     const [weatherData, setWeatherData] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
@@ -180,14 +174,22 @@ export default function AboutScreen() {
                     minute: '2-digit',
                     second: '2-digit',
                     hour12: true,
+                    timeZone: targetTimezone,
                 })
             );
+
+            const hourString = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                hour12: false, // Forces 24-hour calculation
+                timeZone: targetTimezone,
+            });
+            setCurrentHour(parseInt(hourString, 10));
         };
 
         updateClock(); // Initial call to set the time immediately
         const timerId = setInterval(updateClock, 1000); // Update every second
         return () => clearInterval(timerId);
-    }, []);
+    }, [targetTimezone]);
 
     // Grabs weather data using Open-Meteo API
     useEffect(() => {
@@ -201,6 +203,11 @@ export default function AboutScreen() {
                 if (response.ok && isMounted) {
                     const json = await response.json();
                     const current = json.current;
+
+                    // Grabbing the timezone
+                    if (json.timezone) {
+                        setTargetTimezone(json.timezone);
+                    }
 
                     // Open-Meteo uses WMO Weather Interpretation Codes (0 = Clear, 1 = Mainly Clear, 2 = Partly Cloudy, 3 = Overcast, 45 = Fog, 48 = Depositing Rime Fog, 51 = Drizzle Light, 53 = Drizzle Moderate, 55 = Drizzle Dense, 56 = Freezing Drizzle Light, 57 = Freezing Drizzle Dense, 61 = Rain Slight, 63 = Rain Moderate, 65 = Rain Heavy, 66 = Freezing Rain Light, 67 = Freezing Rain Heavy, 71 = Snow Fall Slight, 73 = Snow Fall Moderate, 75 = Snow Fall Heavy, 77 = Snow Grains, 80 = Rain Showers Slight, 81 = Rain Showers Moderate, 82 = Rain Showers Violent, 85 = Snow Showers Slight, 86 = Snow Showers Heavy)
                     const code = current.weather_code;
@@ -238,6 +245,31 @@ export default function AboutScreen() {
             clearInterval(weatherInterval);
         };
     }, []);
+    
+    // Map physics translations to absolute canvas coords
+    const absoluteCardX = useDerivedValue(() => {
+        return ((screenWidth - CARD_WIDTH) / 2) + translateX.value;
+    }, [screenWidth]);
+    const absoluteCardY = useDerivedValue(() => {
+        return ((screenHeight - CARD_HEIGHT) / 2) + translateY.value + VISUAL_Y_OFFSET;
+    }, [screenHeight]);
+    
+    // Mapping the shared values into the standard UI transform styles
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            position: 'absolute',
+            left: absoluteCardX.value,
+            top: absoluteCardY.value - (CARD_HEIGHT / 2),
+            transform: [
+                { scaleX: scaleX.value },
+                { scaleY: scaleY.value }
+            ]
+        };
+    });
+
+    // Track size deformations for bloom
+    const dynamicWidth = useDerivedValue(() => CARD_WIDTH * scaleX.value);
+    const dynamicHeight = useDerivedValue(() => CARD_HEIGHT * scaleY.value);
 
     return (
         <View style={styles.container}>
@@ -257,14 +289,23 @@ export default function AboutScreen() {
                     )}
                 </View>
             </View>
-
-            <GestureDetector gesture={panGesture}>
-                <Animated.View style={[styles.card, animatedStyle]}>
-                    <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
-                    <Text selectable={false} style={styles.subtitle}>Cross-Platform Software Engineer</Text>
-                    <Text selectable={false} style={styles.infotitle}>drag me!</Text>
-                </Animated.View>
-            </GestureDetector>
+            <DynamicSunbeamBackground
+                currentHour={currentHour}
+                cardX={absoluteCardX}
+                cardY={absoluteCardY}
+                cardWidth={dynamicWidth}
+                cardHeight={dynamicHeight}
+            >
+                <View contentContainerStyle={styles.scrollContainer}>
+                    <GestureDetector gesture={panGesture}>
+                        <Animated.View style={[styles.card, animatedStyle]}>
+                            <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
+                            <Text selectable={false} style={styles.subtitle}>Cross-Platform Software Engineer</Text>
+                            <Text selectable={false} style={styles.infotitle}>drag me!</Text>
+                        </Animated.View>
+                    </GestureDetector>
+                </View>
+            </DynamicSunbeamBackground>
         </View>
     );
 }
@@ -278,7 +319,7 @@ const styles = StyleSheet.create({
         userSelect: 'none'
     },
     card: { 
-        backgroundColor: '#fff',
+        backgroundColor: '#2b2a2a',
         width: 320,
         height: 160, 
         padding: 30, 
@@ -288,18 +329,18 @@ const styles = StyleSheet.create({
         shadowRadius: 10, 
         elevation: 5,
         zIndex: 1000,
-        justifyContent: 'center',
         cursor: 'grab'
     },
     title: { 
         fontSize: 28, 
+        color: '#999', 
         fontWeight: 'bold', 
         textAlign: 'center',
         justifyContent: 'center' 
     },
     subtitle: { 
         fontSize: 16, 
-        color: '#666', 
+        color: '#999', 
         marginTop: 5,
         justifyContent: 'center' 
     },
@@ -346,5 +387,11 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: '#f85149',
         fontFamily: 'monospace',
+    },
+    scrollContainer: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        position: 'relative',
     },
 });
