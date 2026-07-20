@@ -25,6 +25,15 @@ interface SunbeamProps {
     children: React.ReactNode;
 }
 
+// Vector math helper
+function lerpColor(c1: number[], c2: number[], factor: number): number[] {
+    return [
+        c1[0] + (c2[0] - c1[0]) * factor,
+        c1[1] + (c2[1] - c1[1]) * factor,
+        c1[2] + (c2[2] - c1[2]) * factor,
+    ];
+}
+
 export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ currentHour, cardX, cardY, cardWidth, cardHeight, children }) => {
     const { width, height } = useWindowDimensions();
 
@@ -48,17 +57,30 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ currentHour, 
 
     // adjust color based on time of day
     const sunColor = useMemo(() => {
-        if (currentHour < 5) return [0.25, 0.45, 0.95];                         // Early Morning - Blue
-        if (currentHour >= 5 && currentHour <= 8) {
-            const t = (currentHour - 5) / 3;
-            return [1.0, mixScalar(0.55, 0.85, t), mixScalar(0.25, 0.5, t)];    // Sunrise - Orange
+        const NIGHT = [0.25, 0.45, 0.95];   //Deep Blue
+        const SUNRISE = [1.0, 0.55, 0.25];  //Gold
+        const DAYLIGHT = [1.4, 1.4, 1.4];   //White
+        const SUNSET = [1.1, 0.5, 0.2];     //Orange
+        const TWILIGHT = [0.15, 0.25, 0.6]; //Indigo
+
+        if (currentHour < 5) return NIGHT;
+        if (currentHour >= 5 && currentHour < 7) {
+            return lerpColor(NIGHT, SUNRISE, (currentHour - 5) / 2);
         }
-        if (currentHour > 8 && currentHour < 17) return [1.4, 1.4, 1.4];       // Day - White
-        if (currentHour >= 17 && currentHour <= 19){
-            const t = (currentHour - 16) / 3;
-            return [mixScalar(1.4, 0.95, t), mixScalar(1.4, 0.35, t), mixScalar(1.4, 0.15, t)]; // Sunset - Red/Orange
+        if (currentHour >= 7 && currentHour < 9) {
+            return lerpColor(SUNRISE, DAYLIGHT, (currentHour - 7) / 2);
         }
-        return [0.4, 0.6, 1.0];                                                 // Night - Blue
+        if (currentHour >= 9 && currentHour < 16) return DAYLIGHT;
+        if (currentHour >= 16 && currentHour < 18.5) {
+            return lerpColor(DAYLIGHT, SUNSET, (currentHour - 16) / 2.5);
+        }
+        if (currentHour >= 18.5 && currentHour < 20) {
+            return lerpColor(SUNSET, TWILIGHT, (currentHour - 18.5) / 1.5);
+        }
+        if (currentHour >= 20 && currentHour < 24) {
+            return lerpColor(TWILIGHT, NIGHT, (currentHour - 20) / 4);
+        }
+        return NIGHT;
     }, [currentHour]);
 
     // pack uniforms for the GPU pipeline

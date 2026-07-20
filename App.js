@@ -51,7 +51,7 @@ export default function App() {
             tabBarActiveTintColor: '#bbff00',
             tabBarInactiveTintColor: '#fff',
             headerStyle: { backgroundColor: '#121212' },
-            headerTintColor: '#fff',
+            headerTitleStyle: styles.activeGlow,
           })}
           >
           <Tab.Screen name="About" component={AboutScreen} />
@@ -69,6 +69,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerContainer: {
+    backgroundColor: '#121212',
+    color: '#bbff00',
+    textShadowColor: 'rgba(187, 255, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   activeGlow: {
     color: '#bbff00',

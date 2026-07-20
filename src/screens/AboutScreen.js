@@ -183,7 +183,17 @@ export default function AboutScreen() {
                 hour12: false, // Forces 24-hour calculation
                 timeZone: targetTimezone,
             });
-            setCurrentHour(parseInt(hourString, 10));
+            const minuteString = now.toLocaleTimeString('en-US', { 
+                minute: '2-digit', 
+                timeZone: targetTimezone 
+            });
+            const secondString = now.toLocaleTimeString('en-US', { 
+                second: '2-digit', 
+                timeZone: targetTimezone 
+            });
+    
+            const decimalHour = parseInt(hourString, 10) + (parseInt(minuteString, 10) / 60) + (parseInt(secondString, 10) / 3600);
+            setCurrentHour(decimalHour);
         };
 
         updateClock(); // Initial call to set the time immediately
@@ -273,22 +283,7 @@ export default function AboutScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.backgroundWeatherWidget}>
-                <Text selectable={false} style={styles.bgTitle}> Asheville, NC </Text>
-                <Text selectable={false} style={styles.bgClock}> {currentTime || '--:--:--'} </Text>
-
-                <View style={styles.bgWeatherWrapper}>
-                    {isWeatherLoading ? (
-                        <ActivityIndicator size="small" color="#58a6ff" />
-                    ) : weatherData ? (
-                        <Text selectable={false} style={styles.bgWeatherText}>
-                            {weatherData.isDay ? '☀️' : '🌙'} {weatherData.tempF}°F • {weatherData.conditionText}
-                        </Text>
-                    ) : (
-                        <Text selectable={false} style={styles.bgErrorText}>⚠️ Weather Offline</Text>
-                    )}
-                </View>
-            </View>
+            
             <DynamicSunbeamBackground
                 currentHour={currentHour}
                 cardX={absoluteCardX}
@@ -300,8 +295,37 @@ export default function AboutScreen() {
                     <GestureDetector gesture={panGesture}>
                         <Animated.View style={[styles.card, animatedStyle]}>
                             <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
-                            <Text selectable={false} style={styles.subtitle}>Cross-Platform Software Engineer</Text>
-                            <Text selectable={false} style={styles.infotitle}>drag me!</Text>
+                            <Text selectable={false} style={styles.subtitle}>Full-Stack Software Engineer</Text>
+                            {/* 2. NEW: Integrated Real-Time OpenMeteo Weather Widget Sub-Grid */}
+                            {weatherData ? (
+                            <View style={styles.weatherGrid}>
+                                <View style={styles.weatherMetricItem}>
+                                <Text selectable={false} style={styles.metricLabel}>Temp</Text>
+                                <Text selectable={false} style={styles.metricValue}>
+                                    {weatherData.tempF}°F
+                                </Text>
+                                </View>
+                                
+                                <View style={styles.weatherMetricItem}>
+                                <Text selectable={false} style={styles.metricLabel}>Condition</Text>
+                                <Text selectable={false} style={styles.metricValue} numberOfLines={1}>
+                                    {weatherData.conditionText}
+                                </Text>
+                                </View>
+
+                                <View style={styles.weatherMetricItem}>
+                                <Text selectable={false} style={styles.metricLabel}>Local Time</Text>
+                                <Text selectable={false} style={styles.metricValue}>
+                                    {currentTime.split(' ')[0]} {/* Renders clean HH:MM:SS text layout */}
+                                </Text>
+                                </View>
+                            </View>
+                            ) : (
+                            <Text selectable={false} style={styles.loadingText}>Fetching forecast metadata...</Text>
+                            )}
+
+                            {/* 3. Footer Action Hint */}
+                            <Text selectable={false} style={styles.infotitle}>Asheville, NC</Text>
                         </Animated.View>
                     </GestureDetector>
                 </View>
@@ -329,18 +353,26 @@ const styles = StyleSheet.create({
         shadowRadius: 10, 
         elevation: 5,
         zIndex: 1000,
+        justifyContent: 'space-between',
+        alignItems: 'center',
         cursor: 'grab'
     },
     title: { 
         fontSize: 28, 
-        color: '#fff', 
+        color: '#bbff00',
+        textShadowColor: 'rgba(187, 255, 0, 0.85)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 8,
         fontWeight: 'bold', 
         textAlign: 'center',
         justifyContent: 'center' 
     },
     subtitle: { 
         fontSize: 16, 
-        color: '#fff', 
+        color: '#bbff00',
+        textShadowColor: 'rgba(187, 255, 0, 0.85)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 8,
         marginTop: 5,
         justifyContent: 'center' 
     },
@@ -351,42 +383,43 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         textAlign: 'center'
     },
-    backgroundWeatherWidget: {
-        position: 'absolute',
-        top: 24,
-        left: 24,
-        zIndex: 1,
-        backgroundColor: 'rgba(22, 27, 34, 0.4)',
-        padding: 14,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#30363d',
-        minWidth: 180,
+    weatherGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        padding: 1,
+        marginTop: 2,
+        width: '100%',
     },
-    bgTitle: {
-        fontSize: 14,
+    weatherMetricItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    metricLabel: {
+        fontSize: 10,
+        textTransform: 'uppercase',
+        color: '#8a99ad',
         fontWeight: '600',
-        color: '#c9d1d9',
-        fontFamily: 'monospace',
+        letterSpacing: 0.5,
+        marginBottom: 2,
     },
-    bgClock: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#c9d1d9',
-        marginVertical: 4, fontFamily: 'monospace',
-    },
-    bgWeatherWrapper: {
-        marginTop: 2, alignItems: 'flex-start' ,
-    },
-    bgWeatherText: {
+    metricValue: {
         fontSize: 13,
-        color: '#c9d1d9',
-        fontFamily: 'monospace',
+        fontWeight: 'bold',
+        color: '#d7dfe9',
     },
-    bgErrorText: {
+    loadingText: {
+        fontSize: 12,
+        color: '#8a99ad',
+        fontStyle: 'italic',
+        textAlign: 'center',
+    },
+    infotitle: {
         fontSize: 11,
-        color: '#f85149',
-        fontFamily: 'monospace',
+        color: '#d1deee',
+        textTransform: 'uppercase',
+        letterSpacing: 3,
+        padding: 2,
+        textAlign: 'center',
     },
     scrollContainer: {
         flex: 1,

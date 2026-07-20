@@ -13,7 +13,7 @@ const BACKGROUND_SOURCE = `
         float maxScale = max(u_resolution.x, u_resolution.y);
         float distToSun = length(pos - u_sunPos) / maxScale;
 
-        float atmosphericGlow = pow(smoothstep(2.2, 0.0, distToSun), 2.2) * 0.7;
+        float atmosphericGlow = pow(smoothstep(2.2, 0.0, distToSun), 2.2) * 3;
         float ambientWave = sin(u_time * 0.02) * 0.02;
         float finalGlowIntensity = clamp(atmosphericGlow + ambientWave, 0.0, 1.0);
 
@@ -29,7 +29,7 @@ const BACKGROUND_SOURCE = `
     }
 `;
 
-const FOREGRAOUND_SOURCE = `
+const FOREGROUND_SOURCE = `
     uniform vec2 u_sunPos;
     uniform vec3 u_sunColor;
     uniform vec4 u_cardRect; 
@@ -116,7 +116,7 @@ export const SkyCanvas: React.FC<SkyCanvasProps> = ({ uniforms }) => {
 export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ uniforms, cardX, cardY, cardWidth, cardHeight }) => {
   const { width, height } = useWindowDimensions();
 
-  const skiaShader = React.useMemo(() => Skia.RuntimeEffect.Make(FOREGRAOUND_SOURCE), []);
+  const skiaShader = React.useMemo(() => Skia.RuntimeEffect.Make(FOREGROUND_SOURCE), []);
 
   if (!skiaShader) {
     return null;
