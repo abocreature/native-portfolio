@@ -23,12 +23,33 @@ export default function App() {
       >
         <Tab.Navigator
           screenOptions={({ route }) => ({
-            tabBarIcon: ({ color, size }) => {
-              let iconName = route.name === 'About' ? 'person-outline' : 'code-slash-outline';
-              return <Ionicons name={iconName} size={size} color={color} />;
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName;
+              if  (route.name === 'About') {
+                iconName = 'person-outline';
+              } else if (route.name === 'Projects') {
+                iconName = 'code-slash-outline';
+              }
+              return (
+                <Ionicons 
+                  name={iconName} 
+                  size={size} 
+                  style={focused ? styles.activeGlow : styles.inactiveColor}
+                />
+              );
             },
-            tabBarActiveTintColor: '#007AFF',
-            tabBarInactiveTintColor: 'gray',
+            tabBarLabel: ({ focused, children }) => {
+              return (
+                <Text style={[styles.baseLabelText, focused ? styles.activeGlow : styles.inactiveColor]}>
+                  {children}
+                </Text>
+              );
+            },
+            tabBarStyle: {
+              backgroundColor: '#121212'
+            },
+            tabBarActiveTintColor: '#bbff00',
+            tabBarInactiveTintColor: '#fff',
             headerStyle: { backgroundColor: '#121212' },
             headerTintColor: '#fff',
           })}
@@ -48,5 +69,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  activeGlow: {
+    color: '#bbff00',
+    textShadowColor: 'rgba(187, 255, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  inactiveColor: {
+    color: '#fff',
+    opacity: 0.65,
   },
 });

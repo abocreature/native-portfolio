@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
         userSelect: 'none'
     },
     card: { 
-        backgroundColor: '#2b2a2a',
+        backgroundColor: '#121212',
         width: 320,
         height: 160, 
         padding: 30, 
@@ -333,20 +333,20 @@ const styles = StyleSheet.create({
     },
     title: { 
         fontSize: 28, 
-        color: '#999', 
+        color: '#fff', 
         fontWeight: 'bold', 
         textAlign: 'center',
         justifyContent: 'center' 
     },
     subtitle: { 
         fontSize: 16, 
-        color: '#999', 
+        color: '#fff', 
         marginTop: 5,
         justifyContent: 'center' 
     },
     infotitle: {
         fontSize: 10,
-        color: '#999',
+        color: '#fff',
         marginTop: 5,
         justifyContent: 'center',
         textAlign: 'center'
