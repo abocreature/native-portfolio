@@ -12,18 +12,22 @@ A high-performance, cross-platform portfolio application engineered with React N
 
 - **Core Framework:** [React Native](https://reactnative.dev) & [React Native for Web](https://github.io) (Single codebase compilation for Mobile + Desktop browsers)
 - **Workflow & Build Tool:** [Expo Workflow](https://expo.dev) (SDK 51+)
+- **Serverless Backend & Database (BaaS):** [Supabase](https://supabase.com) (Cloud-hosted PostgreSQL database leveraged via automated REST API generation)
 - **High-Performance Physics & Animation:** 
   - [React Native Reanimated](https://swmansion.com) (Damped harmonic spring oscillators and native-thread `useFrameCallback` loops)
   - [React Native Gesture Handler](https://swmansion.com) (Low-latency native `Pan` and `Tap` tracking)
 - **Routing & Navigation:** [@react-navigation/bottom-tabs](https://reactnavigation.org)
 - **Document Rendering:** [React Native Markdown Display](https://github.com) (Native node primitive layout engine)
-- **AI Chat Engine:** [Google Gemini](https://ai.google.dev)
+- **APIs & Integrated Services:** 
+  - [Google Gemini API](https://ai.google.dev) (AI Chat assistant)
+  - [Open-Meteo Weather API](https://open-meteo.com) (Real-time meteorological metrics tracking)
 - **Graphics Engine:** [@shopify/react-native-skia](https://shopify.github.io/react-native-skia/) for hardware-accelerated 2D canvas drawing.
 
 ---
 
 ## 🚀 Key Architectural Features
 
+- **Serverless PostgreSQL Content Delivery:** Decoupled static project arrays into a cloud-hosted Supabase database layer. Leverages the Supabase JS client to execute asynchronous network queries, using Row Level Security (RLS) policies to allow safe public read access to active data.
 - **Performance-Optimized Rendering:** Built utilizing native `FlatList` component architectures to ensure smooth scrolling performance over massive arrays of object data.
 - **Dynamic SafeArea Tracking:** Incorporates device-specific context hooks (`react-native-safe-area-context`) to safely adapt layout components around physical camera notches and status indicators.
 - **Deep Linking Engine:** Integrated system hooks leverage the native phone `Linking` interface to seamlessly route users from the UI straight out into external public GitHub repositories.

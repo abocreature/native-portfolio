@@ -23,7 +23,7 @@ export default function App() {
       >
         <Tab.Navigator
           screenOptions={({ route }) => ({
-            tabBarIcon: ({ focused, color, size }) => {
+             tabBarIcon: ({ focused, color, size }) => {
               let iconName;
               if  (route.name === 'About') {
                 iconName = 'person-outline';

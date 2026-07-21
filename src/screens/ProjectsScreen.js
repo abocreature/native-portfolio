@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     StyleSheet, 
     Text, 
@@ -20,6 +20,7 @@ import Animated, {
     withTiming,
     interpolateColor,
 } from 'react-native-reanimated';
+import { supabase } from '../services/supabase';
 
 import ProjectChatBot from '../components/ProjectChatBot';
 
@@ -114,6 +115,31 @@ export default function ProjectsScreen() {
     const [activeRepoName, setActiveRepoName] = useState('');
     const [hasSelectedRepo, setHasSelectedRepo] = useState(false);
 
+    const [projects, setProjects] = useState([]);
+    const [isProjectLoading, setIsProjectLoading] = useState('');
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        async function fetchProjects() {
+            try {
+                setIsProjectLoading(true);
+                const { data, error } = await supabase
+                    .from('projects')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                setProjects(data);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setIsProjectLoading(false);
+            }
+        }
+
+        fetchProjects();
+    }, []);
+
     // Downloads the readme as a string from server endpoints
     const fetchReadme = async (rawOwner, rawRepo) => {
         // Sanitize the owner and repo names
@@ -146,21 +172,40 @@ export default function ProjectsScreen() {
         }
     };
 
+    if (isProjectLoading) {
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#007AFF" />
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.container}>
+                <Text style={{ color: 'red' }}>Error loading projects: {error}</Text>
+            </View>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={[styles.layoutWrapper, { flexDirection: isLargeScreen ? 'row' : 'column', position: 'relative' }]}>
                 <View style={[styles.leftColumn, { marginRight: isLargeScreen ? 16 : 0 }]}>
                     <FlatList
-                        data={PROJECT_DATA}
+                        data={projects}
                         keyExtractor={item => item.id}
+                        showsVerticalScrollIndicator={false}
+                        showsHorizontalScrollIndicator={false}
                         renderItem={({ item }) => (
                             <View style={styles.projectCard}>
                                 <Text style={styles.projectTitle}>{item.title}</Text>
-                                <Text style={styles.projectTech}>{item.tech}</Text>
+                                <Text style={styles.projectTech}>{item.description}</Text>
+                                <Text style={styles.projectTech}>{item.stack}</Text>
 
                                 <View style={styles.buttonRow}>
                                     <AnimatedButton 
-                                        onPress={() => Linking.openURL(item.link)}
+                                        onPress={() => Linking.openURL(item.documentation)}
                                         defaultBg="#238636"
                                         hoverBg="#2ea44f"
                                         activeBg="#247233"
@@ -170,7 +215,7 @@ export default function ProjectsScreen() {
                                     </AnimatedButton>
 
                                     <AnimatedButton 
-                                        onPress={() => fetchReadme(item.owner, item.repo)}
+                                        onPress={() => fetchReadme(item.owner, item.repo_name)}
                                         defaultBg="#1f6feb"
                                         hoverBg="#4690ff"
                                         activeBg="#2463c2"
@@ -212,7 +257,11 @@ export default function ProjectsScreen() {
                                         <Text style={styles.closeBtnText}>X Close</Text>
                                     </TouchableOpacity>
                                 </View>
-                                <ScrollView contentContainerStyle={styles.markdownScroll}>
+                                <ScrollView 
+                                    contentContainerStyle={styles.markdownScroll}
+                                    showsVerticalScrollIndicator={false}
+                                    showsHorizontalScrollIndicator={false}
+                                >
                                     <Markdown style={markdownStyles}>
                                         {markdownContent}
                                     </Markdown>
