@@ -8,10 +8,12 @@
     "@google/genai": "^2.12.0",
     "@react-navigation/bottom-tabs": "^7.18.8",
     "@react-navigation/native": "^7.3.8",
-    "@shopify/react-native-skia": "^2.9.0",
+    "@shopify/react-native-skia": "2.2.12",
     "@vercel/analytics": "^2.0.1",
     "expo": "54",
+    "expo-dev-client": "~6.0.21",
     "expo-status-bar": "~3.0.9",
+    "expo-system-ui": "~6.0.9",
     "openai": "^6.48.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -25,13 +27,14 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "private": true,
   "devDependencies": {
     "@types/react": "^19.2.17",
+    "path-browserify": "^1.0.1",
     "typescript": "~5.9.2"
   }
 }

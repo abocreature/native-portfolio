@@ -148,7 +148,7 @@ export default function ProjectsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={[styles.layoutWrapper, { flexDirection: isLargeScreen ? 'row' : 'column' }]}>
+            <View style={[styles.layoutWrapper, { flexDirection: isLargeScreen ? 'row' : 'column', position: 'relative' }]}>
                 <View style={[styles.leftColumn, { marginRight: isLargeScreen ? 16 : 0 }]}>
                     <FlatList
                         data={PROJECT_DATA}
@@ -183,43 +183,44 @@ export default function ProjectsScreen() {
                         )}
                     />
                 </View>
-
-                <View style={styles.rightColumn}>
-                    {!hasSelectedRepo ? (
-                        <View style={styles.centeredView}>
-                        </View>
-                    ) : isLoading ? (
-                        <View style={styles.centeredView}>
-                            <ActivityIndicator size="large" color="#007AFF" />
-                            <Text style={styles.loadingText}>Fetching from GitHub...</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.readmeContainer}>
-                            <View Style={styles.readmeHeader}>
-                                <View style={styles.readmeHeaderTitleContainer}>
-                                    <Text style={styles.readmeHeaderTitle}> {activeRepoName} / README.md</Text>
-                                </View>
-
-                                <TouchableOpacity
-                                    style={styles.closeBtn}
-                                    onPress={() => {
-                                        setHasSelectedRepo(false);
-                                        setActiveRepoName('');
-                                        setMarkdownContent('');
-                                    }}
-                                >
-                                    <Text style={styles.closeBtnText}>X Close</Text>
-                                </TouchableOpacity>
+                
+                {(!isLargeScreen && !hasSelectedRepo) ? null : (
+                    <View style={[styles.rightColumn, !isLargeScreen && styles.mobileOverlay]}>
+                        {!hasSelectedRepo ? (
+                            <View style={styles.centeredView}>
                             </View>
-                            <ScrollView contentContainerStyle={styles.markdownScroll}>
-                                <Markdown style={markdownStyles}>
-                                    {markdownContent}
-                                </Markdown>
-                            </ScrollView>
-                        </View>
-                    )}
-                </View>
+                        ) : isLoading ? (
+                            <View style={styles.centeredView}>
+                                <ActivityIndicator size="large" color="#007AFF" />
+                                <Text style={styles.loadingText}>Fetching from GitHub...</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.readmeContainer}>
+                                <View Style={styles.readmeHeader}>
+                                    <View style={styles.readmeHeaderTitleContainer}>
+                                        <Text style={styles.readmeHeaderTitle}> {activeRepoName} / README.md</Text>
+                                    </View>
 
+                                    <TouchableOpacity
+                                        style={styles.closeBtn}
+                                        onPress={() => {
+                                            setHasSelectedRepo(false);
+                                            setActiveRepoName('');
+                                            setMarkdownContent('');
+                                        }}
+                                    >
+                                        <Text style={styles.closeBtnText}>X Close</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <ScrollView contentContainerStyle={styles.markdownScroll}>
+                                    <Markdown style={markdownStyles}>
+                                        {markdownContent}
+                                    </Markdown>
+                                </ScrollView>
+                            </View>
+                        )}
+                    </View>
+                )}
             </View>
             <ProjectChatBot />
         </SafeAreaView>
@@ -244,6 +245,17 @@ const styles = StyleSheet.create({
         flex: 3,
         backgroundColor: '#161b22',
         overflow: 'hidden',
+    },
+    mobileOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 99,
+        elevation: 5,
     },
 
     projectCard: {
