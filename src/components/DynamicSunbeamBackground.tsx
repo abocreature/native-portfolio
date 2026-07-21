@@ -18,6 +18,8 @@ const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
 
 interface SunbeamProps {
     currentHour: number; // OpenMeteo time in decimal
+    sunriseHour?: number; // OpenMeteo sunrise time in decimal hours
+    sunsetHour?: number; // OpenMeteo sunset time in decimal hours
     cloudCover: number; // OpenMeteo cloud cover percentage
     windSpeed: number; // OpenMeteo wind speed
     cardX: SharedValue<number>;
@@ -38,6 +40,8 @@ function lerpColor(c1: number[], c2: number[], factor: number): number[] {
 
 export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ 
     currentHour, 
+    sunriseHour = 6.5,
+    sunsetHour = 18.5,
     cloudCover = 0, 
     windSpeed = 5, 
     cardX, 
@@ -69,26 +73,36 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
         const cloudFactor = cloudCover / 100;
         const stormyGray = [0.45, 0.5, 0.6];
 
-        if (currentHour < 5) baseColor = NIGHT;
-        if (currentHour >= 5 && currentHour < 7) {
-            baseColor = lerpColor(NIGHT, SUNRISE, (currentHour - 5) / 2);
+        const sunriseStart = Math.max(0, sunriseHour - 1.5);
+        const sunriseEnd = Math.min(24, sunriseHour + 1.5);
+        const sunsetStart = Math.max(0, sunsetHour - 1.5);
+        const sunsetEnd = Math.min(24, sunsetHour + 1.5);
+
+        if (currentHour < sunriseStart) baseColor = NIGHT;
+        if (currentHour >= sunriseStart && currentHour < sunriseHour) {
+            const span = Math.max(0.01, sunriseHour - sunriseStart);
+            baseColor = lerpColor(NIGHT, SUNRISE, (currentHour - sunriseStart) / span);
         }
-        if (currentHour >= 7 && currentHour < 9) {
-            baseColor = lerpColor(SUNRISE, DAYLIGHT, (currentHour - 7) / 2);
+        if (currentHour >= sunriseHour && currentHour < sunriseEnd) {
+            const span = Math.max(0.01, sunriseEnd - sunriseHour);
+            baseColor = lerpColor(SUNRISE, DAYLIGHT, (currentHour - sunriseHour) / span);
         }
-        if (currentHour >= 9 && currentHour < 16) baseColor = DAYLIGHT;
-        if (currentHour >= 16 && currentHour < 18.5) {
-            baseColor = lerpColor(DAYLIGHT, SUNSET, (currentHour - 16) / 2.5);
+        if (currentHour >= sunriseEnd && currentHour < sunsetStart) baseColor = DAYLIGHT;
+        if (currentHour >= sunsetStart && currentHour < sunsetHour) {
+            const span = Math.max(0.01, sunsetHour - sunsetStart);
+            baseColor = lerpColor(DAYLIGHT, SUNSET, (currentHour - sunsetStart) / span);
         }
-        if (currentHour >= 18.5 && currentHour < 20) {
-            baseColor = lerpColor(SUNSET, TWILIGHT, (currentHour - 18.5) / 1.5);
+        if (currentHour >= sunsetHour && currentHour < sunsetEnd) {
+            const span = Math.max(0.01, sunsetEnd - sunsetHour);
+            baseColor = lerpColor(SUNSET, TWILIGHT, (currentHour - sunsetHour) / span);
         }
-        if (currentHour >= 20) {
-            baseColor = lerpColor(TWILIGHT, NIGHT, (currentHour - 20) / 4);
+        if (currentHour >= sunsetEnd) {
+            const span = Math.max(0.01, 24 - sunsetEnd);
+            baseColor = lerpColor(TWILIGHT, NIGHT, (currentHour - sunsetEnd) / span);
         }
 
-        return lerpColor (baseColor, stormyGray, (cloudFactor * 0.7));
-    }, [currentHour, cloudCover]);
+        return lerpColor(baseColor, stormyGray, (cloudFactor * 0.7));
+    }, [currentHour, sunriseHour, sunsetHour, cloudCover]);
 
     // pack uniforms for the GPU pipeline
     const uniforms = useDerivedValue(() => {

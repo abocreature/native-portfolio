@@ -12,6 +12,7 @@ import Animated, {
     withSpring,
     useFrameCallback
 } from 'react-native-reanimated';
+import { fetchWeatherApi } from 'openmeteo';
 import { DynamicSunbeamBackground } from '../components/DynamicSunbeamBackground';
 
 export default function AboutScreen() {
@@ -156,12 +157,14 @@ export default function AboutScreen() {
         });
 
     // State for the current time and weather data    
-    const LATITUDE = '35.8212';
-    const LONGITUDE = '-82.6027';
+    const LATITUDE = '35.82';
+    const LONGITUDE = '-82.58';
     const [targetTimezone, setTargetTimezone] = useState('America/New_York'); //fallback to local timezone
     const [currentTime, setCurrentTime] = useState('');
     const [currentHour, setCurrentHour] = useState(new Date().getHours()); //fallback to local time
     const [weatherData, setWeatherData] = useState(null);
+    const [sunriseHour, setSunriseHour] = useState(6.5);
+    const [sunsetHour, setSunsetHour] = useState(18.5);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
     // Make clock work
@@ -205,42 +208,103 @@ export default function AboutScreen() {
     useEffect(() => {
         let isMounted = true; // To prevent state updates if the component unmounts
 
+        const parseApiTimeToDecimalHours = (value) => {
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                const asDate = new Date(value * 1000);
+                if (!Number.isNaN(asDate.getTime())) {
+                    return asDate.getHours() + (asDate.getMinutes() / 60) + (asDate.getSeconds() / 3600);
+                }
+            }
+
+            if (typeof value === 'string') {
+                const match = value.match(/T(\d{2}):(\d{2})(?::(\d{2}))?/);
+                if (match) {
+                    const [, hours, minutes, seconds = '0'] = match;
+                    return Number(hours) + Number(minutes) / 60 + Number(seconds) / 3600;
+                }
+            }
+
+            return null;
+        };
+
         const fetchWeatherData = async () => {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=temperature_2m,is_day,weather_code&temperature_unit=fahrenheit&timezone=America%2FNew_York`;
+            const params = {
+                latitude: [LATITUDE],
+                longitude: [LONGITUDE],
+                current: 'temperature_2m,is_day,weather_code,cloud_cover,wind_speed_10m',
+                daily: 'sunrise,sunset',
+                temperature_unit: 'fahrenheit',
+                timezone: 'auto',
+                models: 'best_match',
+            };
 
             try {
-                const response = await fetch(url);
-                if (response.ok && isMounted) {
-                    const json = await response.json();
-                    const current = json.current;
+                const responses = await fetchWeatherApi('https://api.open-meteo.com/v1/forecast', params);
+                const response = responses[0];
 
-                    // Grabbing the timezone
-                    if (json.timezone) {
-                        setTargetTimezone(json.timezone);
+                if (response && isMounted) {
+                    const timezone = response.timezone();
+                    if (timezone) {
+                        setTargetTimezone(timezone);
                     }
 
-                    // Open-Meteo uses WMO Weather Interpretation Codes (0 = Clear, 1 = Mainly Clear, 2 = Partly Cloudy, 3 = Overcast, 45 = Fog, 48 = Depositing Rime Fog, 51 = Drizzle Light, 53 = Drizzle Moderate, 55 = Drizzle Dense, 56 = Freezing Drizzle Light, 57 = Freezing Drizzle Dense, 61 = Rain Slight, 63 = Rain Moderate, 65 = Rain Heavy, 66 = Freezing Rain Light, 67 = Freezing Rain Heavy, 71 = Snow Fall Slight, 73 = Snow Fall Moderate, 75 = Snow Fall Heavy, 77 = Snow Grains, 80 = Rain Showers Slight, 81 = Rain Showers Moderate, 82 = Rain Showers Violent, 85 = Snow Showers Slight, 86 = Snow Showers Heavy)
-                    const code = current.weather_code;
+                    const current = response.current();
+                    const daily = response.daily();
+                    const temperature = current?.variables(0)?.value();
+                    const isDay = current?.variables(1)?.value();
+                    const weatherCode = current?.variables(2)?.value();
+                    const cloudCover = current?.variables(3)?.value();
+                    const windSpeed = current?.variables(4)?.value();
+
+                    const parsedSunrise = parseApiTimeToDecimalHours(daily?.variables(0)?.valuesArray()?.[0]);
+                    const parsedSunset = parseApiTimeToDecimalHours(daily?.variables(1)?.valuesArray()?.[0]);
+
+                    if (parsedSunrise !== null) {
+                        setSunriseHour(parsedSunrise);
+                    }
+                    if (parsedSunset !== null) {
+                        setSunsetHour(parsedSunset);
+                    }
+
+                    // Open-Meteo uses WMO Weather Interpretation Codes https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
+                    const code = weatherCode ?? 0;
                     let conditionText = 'Clear';
-                    if (code >= 1 && code <= 3) conditionText = 'Cloudy';
-                    else if (code >= 45 && code <= 48) conditionText = 'Foggy';
-                    else if (code >= 49 && code <= 50) conditionText = 'Freezing Fog';
-                    else if (code >= 51 && code <= 57) conditionText = 'Drizzle';
-                    else if (code >= 61 && code <= 67) conditionText = 'Rainy';
-                    else if (code >= 71 && code <= 77) conditionText = 'Snowy';
-                    else if (code >= 80 && code <= 86) conditionText = 'Showers';
-                    else if (code >= 95 && code <= 99) conditionText = 'Thunderstorm';
+                    if (code == 1) conditionText = 'Mainly Clear';
+                    else if (code == 2) conditionText = 'Partly Cloudy';
+                    else if (code == 3) conditionText = 'Overcast';
+                    else if (code >= 45 && code <= 47) conditionText = 'Fog';
+                    else if (code >= 48 && code <= 50) conditionText = 'Freezing Fog';
+                    else if (code >= 51 && code <= 52) conditionText = 'Light Drizzle';
+                    else if (code >= 53 && code <= 54) conditionText = 'Drizzle';
+                    else if (code == 55) conditionText = 'Dense Drizzle';
+                    else if (code >= 56 && code <= 57) conditionText = 'Freezing Drizzle';
+                    else if (code >= 61 && code <= 62) conditionText = 'Light Rain';
+                    else if (code >= 63 && code <= 64) conditionText = 'Rain';
+                    else if (code == 65) conditionText = 'Heavy Rain';
+                    else if (code >= 66 && code <= 67) conditionText = 'Freezing Rain';
+                    else if (code >= 70 && code <= 71) conditionText = 'Light Snow';
+                    else if (code >= 72 && code <= 73) conditionText = 'Snow';
+                    else if (code >= 74 && code <= 75) conditionText = 'Heavy Snow';
+                    else if (code == 77) conditionText = 'Snow Grains';
+                    else if (code == 80) conditionText = 'Light Showers';
+                    else if (code == 81) conditionText = 'Showers';
+                    else if (code == 82) conditionText = 'Heavy Showers';
+                    else if (code >= 83 && code <= 86) conditionText = 'Snow Showers';
+                    else if (code == 95) conditionText = 'Thunderstorm';
+                    else if (code >= 96) conditionText = 'Hailstorm';
 
                     setWeatherData({
-                        tempF: Math.round(current.temperature_2m),
-                        conditionText: conditionText,
-                        isDay: current.is_day === 1,
+                        tempF: Math.round(temperature ?? 0),
+                        conditionText,
+                        isDay: isDay === 1,
+                        cloudCover: Math.round(cloudCover ?? 0),
+                        windSpeed: Math.round(windSpeed ?? 5),
                     });
                 } else {
-                    console.error('Open-Meteo server error code:', response.status);
+                    console.error('Open-Meteo returned no response');
                 }
             } catch (error) {
-                console.error('Failed to parse stream:', error);
+                console.error('Failed to fetch weather data:', error);
             } finally {
                 if (isMounted) {
                     setIsWeatherLoading(false);
@@ -286,6 +350,8 @@ export default function AboutScreen() {
             
             <DynamicSunbeamBackground
                 currentHour={currentHour}
+                sunriseHour={sunriseHour}
+                sunsetHour={sunsetHour}
                 cloudCover={weatherData ? weatherData.cloudCover : 0}
                 windSpeed={weatherData ? weatherData.windSpeed : 5}
                 cardX={absoluteCardX}
@@ -301,21 +367,28 @@ export default function AboutScreen() {
                             {/* 2. NEW: Integrated Real-Time OpenMeteo Weather Widget Sub-Grid */}
                             {weatherData ? (
                             <View style={styles.weatherGrid}>
-                                <View style={styles.weatherMetricItem}>
+                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
                                 <Text selectable={false} style={styles.metricLabel}>Temp</Text>
                                 <Text selectable={false} style={styles.metricValue}>
                                     {weatherData.tempF}°F
                                 </Text>
                                 </View>
-                                
-                                <View style={styles.weatherMetricItem}>
+
+                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
                                 <Text selectable={false} style={styles.metricLabel}>Condition</Text>
                                 <Text selectable={false} style={styles.metricValue} numberOfLines={1}>
                                     {weatherData.conditionText}
                                 </Text>
                                 </View>
+                                
+                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
+                                <Text selectable={false} style={styles.metricLabel}>Clouds</Text>
+                                <Text selectable={false} style={styles.metricValue} numberOfLines={1}>
+                                    {weatherData.cloudCover ?? 0}%
+                                </Text>
+                                </View>
 
-                                <View style={styles.weatherMetricItem}>
+                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
                                 <Text selectable={false} style={styles.metricLabel}>Local Time</Text>
                                 <Text selectable={false} style={styles.metricValue}>
                                     {currentTime.split(' ')[0]} {/* Renders clean HH:MM:SS text layout */}
@@ -388,13 +461,27 @@ const styles = StyleSheet.create({
     weatherGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        padding: 1,
+        alignItems: 'flex-start',
+        paddingHorizontal: 0,
         marginTop: 2,
         width: '100%',
+        gap: 0,
     },
     weatherMetricItem: {
         flex: 1,
+        minWidth: 0,
         alignItems: 'center',
+        marginHorizontal: 1,
+    },
+    weatherMetricItemCompact: {
+        flexBasis: 0.8,
+        flexGrow: 0.8,
+        flexShrink: 1,
+    },
+    weatherMetricItemWide: {
+        flexBasis: 1.4,
+        flexGrow: 1.4,
+        flexShrink: 1,
     },
     metricLabel: {
         fontSize: 10,
@@ -408,6 +495,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: 'bold',
         color: '#d7dfe9',
+        textAlign: 'center',
     },
     loadingText: {
         fontSize: 12,
