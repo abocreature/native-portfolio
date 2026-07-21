@@ -17,7 +17,9 @@ import { SkyCanvas, BorderOverlayCanvas } from './SunbeamSkiaCanvas';
 const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
 
 interface SunbeamProps {
-    currentHour: number; // Passing OpenMeteo time
+    currentHour: number; // OpenMeteo time in decimal
+    cloudCover: number; // OpenMeteo cloud cover percentage
+    windSpeed: number; // OpenMeteo wind speed
     cardX: SharedValue<number>;
     cardY: SharedValue<number>;
     cardWidth: SharedValue<number>;
@@ -34,19 +36,19 @@ function lerpColor(c1: number[], c2: number[], factor: number): number[] {
     ];
 }
 
-export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ currentHour, cardX, cardY, cardWidth, cardHeight, children }) => {
+export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ 
+    currentHour, 
+    cloudCover = 0, 
+    windSpeed = 5, 
+    cardX, 
+    cardY, 
+    cardWidth, 
+    cardHeight, 
+    children 
+}) => {
     const { width, height } = useWindowDimensions();
-
     // continuous shimmer animation
     const animTime = useSharedValue(0);
-
-    useEffect(() => {
-        animTime.value = withRepeat(
-            withTiming(100, { duration: 50000, easing: Easing.linear }),
-            -1,
-            false
-        );
-    }, []);
 
     // mapping the OpenMeteo data to the rotation
     const rotationAngle = useMemo(() => {
@@ -57,31 +59,36 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ currentHour, 
 
     // adjust color based on time of day
     const sunColor = useMemo(() => {
-        const NIGHT = [0.25, 0.45, 0.95];   //Deep Blue
+        const NIGHT = [0.15, 0.25, 0.45];   //Deep Blue
         const SUNRISE = [1.0, 0.55, 0.25];  //Gold
         const DAYLIGHT = [1.4, 1.4, 1.4];   //White
         const SUNSET = [1.1, 0.5, 0.2];     //Orange
         const TWILIGHT = [0.15, 0.25, 0.6]; //Indigo
 
-        if (currentHour < 5) return NIGHT;
+        let baseColor = DAYLIGHT; //Defaults to daylight
+        const cloudFactor = cloudCover / 100;
+        const stormyGray = [0.45, 0.5, 0.6];
+
+        if (currentHour < 5) baseColor = NIGHT;
         if (currentHour >= 5 && currentHour < 7) {
-            return lerpColor(NIGHT, SUNRISE, (currentHour - 5) / 2);
+            baseColor = lerpColor(NIGHT, SUNRISE, (currentHour - 5) / 2);
         }
         if (currentHour >= 7 && currentHour < 9) {
-            return lerpColor(SUNRISE, DAYLIGHT, (currentHour - 7) / 2);
+            baseColor = lerpColor(SUNRISE, DAYLIGHT, (currentHour - 7) / 2);
         }
-        if (currentHour >= 9 && currentHour < 16) return DAYLIGHT;
+        if (currentHour >= 9 && currentHour < 16) baseColor = DAYLIGHT;
         if (currentHour >= 16 && currentHour < 18.5) {
-            return lerpColor(DAYLIGHT, SUNSET, (currentHour - 16) / 2.5);
+            baseColor = lerpColor(DAYLIGHT, SUNSET, (currentHour - 16) / 2.5);
         }
         if (currentHour >= 18.5 && currentHour < 20) {
-            return lerpColor(SUNSET, TWILIGHT, (currentHour - 18.5) / 1.5);
+            baseColor = lerpColor(SUNSET, TWILIGHT, (currentHour - 18.5) / 1.5);
         }
-        if (currentHour >= 20 && currentHour < 24) {
-            return lerpColor(TWILIGHT, NIGHT, (currentHour - 20) / 4);
+        if (currentHour >= 20) {
+            baseColor = lerpColor(TWILIGHT, NIGHT, (currentHour - 20) / 4);
         }
-        return NIGHT;
-    }, [currentHour]);
+
+        return lerpColor (baseColor, stormyGray, (cloudFactor * 0.7));
+    }, [currentHour, cloudCover]);
 
     // pack uniforms for the GPU pipeline
     const uniforms = useDerivedValue(() => {
@@ -96,8 +103,10 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ currentHour, 
             u_time: animTime.value,
             u_sunPos: [sunX, sunY],
             u_sunColor: sunColor,
+            u_cloudCover: cloudCover / 100,
+            u_windSpeed: windSpeed,
         };
-    }, [width, height, currentHour, sunColor]);
+    }, [width, height, currentHour, sunColor, cloudCover, windSpeed]);
 
     const cdnOpts = { locateFile: (file: string): string => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}` };
 

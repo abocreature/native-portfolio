@@ -8,19 +8,31 @@ const BACKGROUND_SOURCE = `
     uniform float u_time;
     uniform vec2 u_sunPos;
     uniform vec3 u_sunColor;
+    uniform float u_cloudCover;
+    uniform float u_windSpeed;
 
     vec4 main(vec2 pos) {
         float maxScale = max(u_resolution.x, u_resolution.y);
         float distToSun = length(pos - u_sunPos) / maxScale;
 
-        float atmosphericGlow = pow(smoothstep(2.2, 0.0, distToSun), 2.2) * 3;
-        float ambientWave = sin(u_time * 0.02) * 0.02;
+        float gradientSharpness = 2.2 - (u_cloudCover * 0.8);
+        float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 3 * (0.7 - u_cloudCover * 0.3);
+        float ambientWave = sin(u_time * 0.005) * (0.02 + u_cloudCover * 0.02);
         float finalGlowIntensity = clamp(atmosphericGlow + ambientWave, 0.0, 1.0);
 
-        vec3 bgColor = vec3(0.02, 0.04, 0.1); 
-        vec3 finalColor = mix(bgColor, u_sunColor, finalGlowIntensity);
+        // Using this to find the relative height of the sun and turning that into a 0.0 to 1.0 range
+        vec2 screenCenter = u_resolution * 0.5;
+        float orbitRadius = max(u_resolution.x, u_resolution.y) * 1.5;
+        float relativeSunY = u_sunPos.y - screenCenter.y;
+        float dayFactor = (relativeSunY / orbitRadius) * 0.5 + 0.5;
+        dayFactor = clamp(dayFactor, 0.0, 1.0);
 
-        // Center vignette
+        vec3 clearBg = mix(vec3(0.1, 0.2, 0.3), vec3(0.01, 0.02, 0.05), dayFactor);
+        //vec3 clearBg = vec3(0.02, 0.04, 0.1);
+        vec3 cloudyBg = vec3(0.4, 0.4, 0.6);
+        vec3 baseBg = mix(clearBg, cloudyBg, u_cloudCover);
+        vec3 finalColor = mix(baseBg, u_sunColor, finalGlowIntensity);
+
         vec2 normCenterUV = (pos - u_resolution * 0.5) / maxScale;
         float centerDist = length(normCenterUV);
         finalColor += u_sunColor * (smoothstep(0.8, 0.0, centerDist) * 0.03);
@@ -34,6 +46,7 @@ const FOREGROUND_SOURCE = `
     uniform vec3 u_sunColor;
     uniform vec4 u_cardRect; 
     uniform float u_borderRadius;
+    uniform float u_cloudCover;
 
     float sdRoundRect(vec2 p, vec2 origin, vec2 size, float rad) {
         vec2 d = abs(p - (origin + size * 0.5)) - (size * 0.5 - rad);
@@ -49,18 +62,21 @@ const FOREGROUND_SOURCE = `
         vec4 finalColor = vec4(0.0);
 
         // Isolate calculation strictly to the card perimeter boundary (-15px outside to +6px inside)
-        if (distanceToCard > -1.0 && distanceToCard < 1.0) {
+        if (distanceToCard > -1 && distanceToCard < 1) {
             vec2 cardCenter = cardOrigin + cardSize * 0.5;
             vec2 lightDir = normalize(u_sunPos - cardCenter);
             vec2 pixelDir = normalize(pos - cardCenter);
             
             float edgeFacingSun = dot(pixelDir, lightDir);
-            float spotlightGlow = pow(max(0.0, edgeFacingSun), 4.0);
-            float colorBlendWeight = edgeFacingSun * 0.5 + 0.5;
+
+            // Muting the highlight when cloudy
+            float spotPower = 4.0 - (u_cloudCover * 2.0);
+            float spotlightGlow = pow(max(0.0, edgeFacingSun), spotPower);
+            float colorBlendWeight = edgeFacingSun * 0.5 + 0.5 + u_cloudCover;
             float bloomGlowFalloff = smoothstep(-15.0, -1.0, distanceToCard) * smoothstep(6.0, 1.0, distanceToCard);
             
             float dayFactor = clamp(u_sunColor.g, 0.3, 1.0);
-            vec3 brilliantWhite = vec3(1.6, 1.6, 1.6);
+            vec3 brilliantWhite = mix(vec3(1.6, 1.6, 1.6), vec3(1.0, 1.0, 1.1), u_cloudCover);
 
             vec3 cardColorMatch = vec3(0.082, 0.106, 0.137);
             vec3 baseAmbientGlow = mix(cardColorMatch, u_sunColor * 0.4, colorBlendWeight);
@@ -68,7 +84,7 @@ const FOREGROUND_SOURCE = `
             vec3 finalGlow = mix(baseAmbientGlow, brilliantWhite, spotlightGlow * 0.95 * dayFactor);
             
             // Assign the color and apply the pixel mask to the alpha channel
-            finalColor = vec4(finalGlow, bloomGlowFalloff * 0.95);
+            finalColor = vec4(finalGlow, bloomGlowFalloff * (0.95 - u_cloudCover * 0.3));
         }
 
         return finalColor;
@@ -81,6 +97,8 @@ interface SkyCanvasProps {
         u_time: number;
         u_sunPos: number[];
         u_sunColor: number[];
+        u_cloudCover: number;
+        u_windSpeed: number;
     }>;
 }
 
@@ -90,6 +108,8 @@ interface BorderOverlayCanvasProps {
         u_time: number;
         u_sunPos: number[];
         u_sunColor: number[];
+        u_cloudCover: number;
+        u_windSpeed: number;
     }>;
     cardX: SharedValue<number>;
     cardY: SharedValue<number>;
