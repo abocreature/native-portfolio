@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -12,10 +12,23 @@ import ProjectsScreen from './src/screens/ProjectsScreen';
 
 const Tab = createBottomTabNavigator();
 
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#121212',
+    card: '#121212',
+    border: '#1f1f1f',
+    text: '#ffffff',
+    primary: '#bbff00',
+  },
+};
+
 export default function App() {
   return (
-    <GestureHandlerRootView style={{flex:1}}>
+    <GestureHandlerRootView style={{flex:1, backgroundColor:'#121212'}}>
       <NavigationContainer
+        theme={navigationTheme}
         documentTitle={{
           formatter: (options, route) =>
             route ? `Abigail Sutrich | ${route.name}` : `Abigail Sutrich`,
@@ -23,6 +36,9 @@ export default function App() {
       >
         <Tab.Navigator
           screenOptions={({ route }) => ({
+            animation: 'shift',
+            gestureEnabled: true,
+            sceneContainerStyle: { backgroundColor: '#121212' },
              tabBarIcon: ({ focused, color, size }) => {
               let iconName;
               if  (route.name === 'About') {
