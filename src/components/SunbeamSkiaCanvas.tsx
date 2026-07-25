@@ -16,8 +16,8 @@ const BACKGROUND_SOURCE = `
         float distToSun = length(pos - u_sunPos) / maxScale;
 
         float gradientSharpness = 2.2 - (u_cloudCover * 0.8);
-        float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 20 * (0.7 - u_cloudCover * 0.3);
-        //float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 30;
+        //float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 3 * (0.7 - u_cloudCover * 0.3);
+        float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 3;
         float ambientWave = sin(u_time * 0.005) * (0.02 + u_cloudCover * 0.02);
         float finalGlowIntensity = clamp(atmosphericGlow + ambientWave, 0.0, 1.0);
 
@@ -33,7 +33,7 @@ const BACKGROUND_SOURCE = `
         vec3 cloudyBg = mix(vec3(0.5, 0.5, 0.6), vec3(0.05, 0.05, 0.06), dayFactor);
         vec3 baseBg = mix(clearBg, cloudyBg, (u_cloudCover));
         //vec3 baseBg = cloudyBg;
-        vec3 finalColor = mix(baseBg, u_sunColor, atmosphericGlow);
+        vec3 finalColor = mix(baseBg, u_sunColor, finalGlowIntensity);
 
         vec2 normCenterUV = (pos - u_resolution * 0.5) / maxScale;
         float centerDist = length(normCenterUV);
