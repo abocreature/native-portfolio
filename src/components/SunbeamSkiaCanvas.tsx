@@ -71,6 +71,22 @@ const BACKGROUND_SOURCE = `
         float centerDist = length(normCenterUV);
         skyColor += u_sunColor * (smoothstep(0.8, 0.0, centerDist) * 0.03);
 
+        // Star Generation
+        vec2 starUV = uv * 140.0; //Higher = more and smaller stars
+        vec2 localUV = fract(starUV);
+        float starPattern = hash(floor(starUV));
+        float speedPattern = hash(floor(starUV) + vec2(43.12, 89.67));
+        float starIntensity = smoothstep(0.90, 1.0, starPattern); // Lower means denser sky
+        float distToCellCenter = length(localUV - vec2(0.5));
+        float starShape = smoothstep(0.15, 0.0, distToCellCenter);
+        float uniqueSpeed = 1.5 + speedPattern * 0.5;
+        float uniquePhase = starPattern + speedPattern * 6.28318538718;
+        float twinkle = 0.6 + 0.4 * sin(u_time * uniqueSpeed + uniquePhase);
+        starIntensity *= twinkle;
+        float starNightMask = smoothstep(0.3, 0.8, dayFactor) * (1.0 - clamp(atmosphericGlow, 0.0, 1.0));
+        vec3 starColor = vec3(starIntensity * starNightMask * starShape);
+        skyColor += starColor;
+
         // Cloud Generation
         float cloudSize = 3.0;
         vec2 cloudUV1 = uv * cloudSize + vec2(xOffset1, 0.0);
@@ -100,7 +116,7 @@ const BACKGROUND_SOURCE = `
         float selfShadow = clamp(cloudDensity - deepDensity, 0.0, 1.0);
         vec3 cloudInternalStructure = mix(cloudBaseColor, cloudCoreColor, cloudDensity);
         float shadowIntensity = mix(0.05, 0.65, u_cloudCover*0.5);
-        float nightShadowDampener = mix(1.0, 0.35, dayFactor);
+        float nightShadowDampener = mix(1.0, 0.15, dayFactor);
         vec3 minimumNightLuminosity = vec3(0.01, 0.02, 0.06);
         vec3 cloudFinalColor = mix(cloudInternalStructure, cloudHighlight, cloudDensity * atmosphericGlow);
         cloudFinalColor -= vec3(selfShadow * shadowIntensity) * (1.0 - atmosphericGlow * 0.5) * nightShadowDampener;
