@@ -190,17 +190,20 @@ interface BorderOverlayCanvasProps {
     cardHeight: SharedValue<number>;
 }
 
+const backgroundShader = Skia.RuntimeEffect.Make(BACKGROUND_SOURCE);
+if (!backgroundShader) console.error("Background shader compilation failed!");
+const borderShader = Skia.RuntimeEffect.Make(FOREGROUND_SOURCE);
+if (!borderShader) console.error("Border shader compilation failed!");
+
 export const SkyCanvas: React.FC<SkyCanvasProps> = ({ uniforms }) => {
     const { width, height } = useWindowDimensions();
 
-    const skiaShader = React.useMemo(() => Skia.RuntimeEffect.Make(BACKGROUND_SOURCE), []);
-
-    if (!skiaShader) return null;
+    if (!backgroundShader) return null;
 
     return (
         <Canvas style={{ width, height, position: 'absolute' }}>
             <Box box={rect(0, 0, width, height)}>
-                <Shader source={skiaShader} uniforms={uniforms} />
+                <Shader source={backgroundShader} uniforms={uniforms} />
             </Box>
         </Canvas>
     );
@@ -209,11 +212,7 @@ export const SkyCanvas: React.FC<SkyCanvasProps> = ({ uniforms }) => {
 export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ uniforms, cardX, cardY, cardWidth, cardHeight }) => {
   const { width, height } = useWindowDimensions();
 
-  const skiaShader = React.useMemo(() => Skia.RuntimeEffect.Make(FOREGROUND_SOURCE), []);
-
-  if (!skiaShader) {
-    return null;
-  }
+  if (!borderShader) return null;
 
   const dynamicCompositeUniforms = useDerivedValue(() => {
     return {
@@ -226,7 +225,7 @@ export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ unifor
   return (
     <Canvas style={{ width, height, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
         <Box box={rect(0, 0, width, height)}>
-            <Shader source={skiaShader} uniforms={dynamicCompositeUniforms} />
+            <Shader source={borderShader} uniforms={dynamicCompositeUniforms} />
         </Box>
     </Canvas>
   );
