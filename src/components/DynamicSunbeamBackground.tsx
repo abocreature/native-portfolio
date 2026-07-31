@@ -14,9 +14,6 @@ import {
 } from 'react-native-reanimated';
 import { SkyCanvas, BorderOverlayCanvas } from './SunbeamSkiaCanvas';
 
-// Get the exact package version
-const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
-
 interface SunbeamProps {
     currentHour: number; // OpenMeteo time in decimal
     sunriseHour?: number; // OpenMeteo sunrise time in decimal hours
@@ -137,48 +134,23 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
         };
     }, [width, height, currentHour, sunColor, cloudCover, windSpeed]);
 
-    const cdnOpts = { locateFile: (file: string): string => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}` };
-
     return (
         <View style={[styles.container, { width, height }]}>
             <View style={styles.backCanvasLayer} pointerEvents="none">
-                <WithSkiaWeb 
-                    opts={{
-                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}`,
-                    }} 
-                    getComponent={async () => {
-                        const { SkyCanvas } = await import('./SunbeamSkiaCanvas');
-
-                        return { 
-                            default: () => <SkyCanvas uniforms={uniforms} /> 
-                        };
-                    }} 
-                />
+                {/* 2. Render the component directly. It will never unmount or leak. */}
+                <SkyCanvas uniforms={uniforms} />
             </View>
             <View style={styles.contentOverlay}>
                 {children}
             </View>
             <View style={[styles.canvasWrapper, { width, height }]} pointerEvents="none">
-                <WithSkiaWeb
-                    opts={{
-                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}`,
-                    }}
-                    getComponent={async () => {
-                        const { BorderOverlayCanvas } = await import('./SunbeamSkiaCanvas');
-
-                        return {
-                            default: () => (
-                                <BorderOverlayCanvas
-                                    uniforms={uniforms}
-                                    cardX={cardX}
-                                    cardY={cardY}
-                                    cardWidth={cardWidth}
-                                    cardHeight={cardHeight}
-                                />
-                            ),
-                        };
-                    }}
-                    fallback={null}
+                {/* 3. Render the overlay component directly */}
+                <BorderOverlayCanvas
+                    uniforms={uniforms}
+                    cardX={cardX}
+                    cardY={cardY}
+                    cardWidth={cardWidth}
+                    cardHeight={cardHeight}
                 />
             </View>
         </View>
