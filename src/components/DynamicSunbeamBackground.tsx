@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, lazy, Suspense } from 'react';
 import { StyleSheet, View, useWindowDimensions, ActivityIndicator } from 'react-native';
 import {
     WithSkiaWeb
@@ -13,6 +13,10 @@ import {
     cancelAnimation,
 } from 'react-native-reanimated';
 import { SkyCanvas, BorderOverlayCanvas } from './SunbeamSkiaCanvas';
+
+const LazySkyCanvas = lazy(() => import('./SunbeamSkiaCanvas').then(m => ({ default: m.SkyCanvas })));
+const LazyBorderCanvas = lazy(() => import('./SunbeamSkiaCanvas').then(m => ({ default: m.BorderOverlayCanvas })));
+
 
 // Get the exact package version
 const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
@@ -142,44 +146,23 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
     return (
         <View style={[styles.container, { width, height }]}>
             <View style={styles.backCanvasLayer} pointerEvents="none">
-                <WithSkiaWeb 
-                    opts={{
-                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}`,
-                    }} 
-                    getComponent={async () => {
-                        const { SkyCanvas } = await import('./SunbeamSkiaCanvas');
-
-                        return { 
-                            default: () => <SkyCanvas uniforms={uniforms} /> 
-                        };
-                    }} 
-                />
+                <Suspense fallback={<ActivityIndicator size="small" />}>
+                    <LazySkyCanvas uniforms={uniforms} />
+                </Suspense>
             </View>
             <View style={styles.contentOverlay}>
                 {children}
             </View>
             <View style={[styles.canvasWrapper, { width, height }]} pointerEvents="none">
-                <WithSkiaWeb
-                    opts={{
-                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}`,
-                    }}
-                    getComponent={async () => {
-                        const { BorderOverlayCanvas } = await import('./SunbeamSkiaCanvas');
-
-                        return {
-                            default: () => (
-                                <BorderOverlayCanvas
-                                    uniforms={uniforms}
-                                    cardX={cardX}
-                                    cardY={cardY}
-                                    cardWidth={cardWidth}
-                                    cardHeight={cardHeight}
-                                />
-                            ),
-                        };
-                    }}
-                    fallback={null}
-                />
+                <Suspense fallback={null}>
+                    <LazyBorderCanvas
+                        uniforms={uniforms}
+                        cardX={cardX}
+                        cardY={cardY}
+                        cardWidth={cardWidth}
+                        cardHeight={cardHeight}
+                    />
+                </Suspense>
             </View>
         </View>
     );
