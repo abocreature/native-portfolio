@@ -94,16 +94,17 @@ const BACKGROUND_SOURCE = `
         float deepDensity = smoothstep(shadowThreshold - 0.15, shadowThreshold + 0.15, shadowNoise);
 
         // Cloud Coloring
-        //vec3 cloudBaseColor = mix(vec3(0.6, 0.6, 0.65), vec3(0.2, 0.2, 0.25), dayFactor);
-        //vec3 cloudShadowColor = mix(vec3(0.08, 0.1, 0.15), vec3(0.01, 0.01, 0.03), dayFactor);
-        vec3 cloudCoreColor = mix(vec3(0.35, 0.36, 0.4) + u_sunColor*0.4, vec3(0.01, 0.01, 0.02), dayFactor);
-        vec3 cloudBaseColor = mix(vec3(0.25, 0.28, 0.35) + u_sunColor*0.4, vec3(0.05, 0.06, 0.1) + u_sunColor*0.1, dayFactor);
+        vec3 cloudCoreColor = mix(vec3(0.35, 0.36, 0.4) + u_sunColor*0.4, vec3(0.05, 0.07, 0.12), dayFactor);
+        vec3 cloudBaseColor = mix(vec3(0.25, 0.28, 0.35) + u_sunColor*0.4, vec3(0.08, 0.11, 0.18) + u_sunColor * 0.1, dayFactor);
         vec3 cloudHighlight = mix(u_sunColor, vec3(1.5, 1.5, 1.55), 0.3);
         float selfShadow = clamp(cloudDensity - deepDensity, 0.0, 1.0);
         vec3 cloudInternalStructure = mix(cloudBaseColor, cloudCoreColor, cloudDensity);
         float shadowIntensity = mix(0.05, 0.65, u_cloudCover*0.5);
+        float nightShadowDampener = mix(1.0, 0.35, dayFactor);
+        vec3 minimumNightLuminosity = vec3(0.01, 0.02, 0.06);
         vec3 cloudFinalColor = mix(cloudInternalStructure, cloudHighlight, cloudDensity * atmosphericGlow);
-        cloudFinalColor -= vec3(selfShadow * shadowIntensity) * (1.0 - atmosphericGlow * 0.5);
+        cloudFinalColor -= vec3(selfShadow * shadowIntensity) * (1.0 - atmosphericGlow * 0.5) * nightShadowDampener;
+        cloudFinalColor = max(cloudFinalColor, minimumNightLuminosity);
         cloudFinalColor = clamp(cloudFinalColor, 0.0, 1.5);
 
         // Final composition, blending sky color with the clouds
