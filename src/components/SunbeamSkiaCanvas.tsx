@@ -11,33 +11,104 @@ const BACKGROUND_SOURCE = `
     uniform float u_cloudCover;
     uniform float u_windSpeed;
 
+    // Pseudorandom hash function
+    float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 42758.543123);
+    }
+
+    // 2D Noise function
+    float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+
+        return mix(mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+                   mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+
+    // Fractal Brownian Motion (FBM) to turn noise into cloudlike structures
+    float fbm(vec2 p) {
+        float value = 0.0;
+        float amplitude = 0.5;
+        float frequency = 1.0;
+        for (int i = 0; i < 4; i++) {
+            value += amplitude * noise(p * frequency);
+            p *= 2.0;
+            amplitude *= 0.5;
+        }
+        return value;
+    }
+
     vec4 main(vec2 pos) {
         float maxScale = max(u_resolution.x, u_resolution.y);
-        float distToSun = length(pos - u_sunPos) / maxScale;
+        vec2 uv = pos / maxScale;
 
-        float gradientSharpness = 2.2 - (u_cloudCover * 0.8);
-        //float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 3 * (0.7 - u_cloudCover * 0.3);
+        // Mapping u_time to a linear cross-fade to hide the loop point
+        float loopDuration = 20.0; //needs to match the animation loop timing
+        float progress = u_time / loopDuration;
+        float baseSpeed = u_windSpeed * 0.03;
+        float xOffset1 = progress * loopDuration * baseSpeed;
+        float xOffset2 = (progress - 1.0) * loopDuration * baseSpeed;
+
+        // Sun Intensity
+        float distToSun = length(pos - u_sunPos) / maxScale;
+        float gradientSharpness = 2.2;
         float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 3;
-        float ambientWave = sin(u_time * 0.005) * (0.02 + u_cloudCover * 0.02);
-        float finalGlowIntensity = clamp(atmosphericGlow + ambientWave, 0.0, 1.0);
 
         // Using this to find the relative height of the sun and turning that into a 0.0 to 1.0 range
         vec2 screenCenter = u_resolution * 0.5;
-        float orbitRadius = max(u_resolution.x, u_resolution.y) * 1.5;
+        float orbitRadius = maxScale * 1.5;
         float relativeSunY = u_sunPos.y - screenCenter.y;
         float dayFactor = (relativeSunY / orbitRadius) * 0.5 + 0.5;
         dayFactor = clamp(dayFactor, 0.0, 1.0);
 
+        // Sky Color
         vec3 clearBg = mix(vec3(0.3, 0.4, 0.55), vec3(0.01, 0.02, 0.05), dayFactor);
-        //vec3 clearBg = vec3(0.02, 0.04, 0.1);
-        vec3 cloudyBg = mix(vec3(0.5, 0.5, 0.6), vec3(0.05, 0.05, 0.06), dayFactor);
-        vec3 baseBg = mix(clearBg, cloudyBg, (u_cloudCover));
-        //vec3 baseBg = cloudyBg;
-        vec3 finalColor = mix(baseBg, u_sunColor, finalGlowIntensity);
+        vec3 skyColor = mix(clearBg, u_sunColor, atmosphericGlow);
 
+        // Vignette / Center glow
         vec2 normCenterUV = (pos - u_resolution * 0.5) / maxScale;
         float centerDist = length(normCenterUV);
-        finalColor += u_sunColor * (smoothstep(0.8, 0.0, centerDist) * 0.03);
+        skyColor += u_sunColor * (smoothstep(0.8, 0.0, centerDist) * 0.03);
+
+        // Cloud Generation
+        float cloudSize = 3.0;
+        vec2 cloudUV1 = uv * cloudSize + vec2(xOffset1, 0.0);
+        vec2 cloudUV2 = uv * cloudSize + vec2(xOffset2, 0.0);
+        float noiseLayer1 = fbm(cloudUV1);
+        float noiseLayer2 = fbm(cloudUV2);
+        float cloudNoise = mix(noiseLayer1, noiseLayer2, progress);
+        float dynamicCoverage;
+        if (u_cloudCover < 0.5) dynamicCoverage = pow(u_cloudCover * 2, 0.4) * 0.5; // Stretches low-end range to avoid threshold drop-off
+        else dynamicCoverage = u_cloudCover;
+        float cloudThreshold = 1.0 - dynamicCoverage; //Threshold from 1.0 to 0.0, lower means more clouds
+        float cloudDensity = smoothstep(cloudThreshold - 0.15, cloudThreshold + 0.15, cloudNoise);
+
+        // Cloud Shadow Generation for fake volume
+        vec2 sunDir = normalize((u_sunPos - pos) / maxScale);
+        vec2 shadowOffset = sunDir * 0.1;
+        float shadowNoiseL1 = fbm(cloudUV1 - shadowOffset);
+        float shadowNoiseL2 = fbm(cloudUV2 - shadowOffset);
+        float shadowNoise = mix(shadowNoiseL1, shadowNoiseL2, progress);
+        float shadowThreshold = mix(cloudThreshold, 0.55, u_cloudCover);
+        float deepDensity = smoothstep(shadowThreshold - 0.15, shadowThreshold + 0.15, shadowNoise);
+
+        // Cloud Coloring
+        //vec3 cloudBaseColor = mix(vec3(0.6, 0.6, 0.65), vec3(0.2, 0.2, 0.25), dayFactor);
+        //vec3 cloudShadowColor = mix(vec3(0.08, 0.1, 0.15), vec3(0.01, 0.01, 0.03), dayFactor);
+        vec3 cloudCoreColor = mix(vec3(0.35, 0.36, 0.4) + u_sunColor*0.4, vec3(0.01, 0.01, 0.02), dayFactor);
+        vec3 cloudBaseColor = mix(vec3(0.25, 0.28, 0.35) + u_sunColor*0.4, vec3(0.05, 0.06, 0.1) + u_sunColor*0.1, dayFactor);
+        vec3 cloudHighlight = mix(u_sunColor, vec3(1.5, 1.5, 1.55), 0.3);
+        float selfShadow = clamp(cloudDensity - deepDensity, 0.0, 1.0);
+        vec3 cloudInternalStructure = mix(cloudBaseColor, cloudCoreColor, cloudDensity);
+        float shadowIntensity = mix(0.05, 0.65, u_cloudCover*0.5);
+        vec3 cloudFinalColor = mix(cloudInternalStructure, cloudHighlight, cloudDensity * atmosphericGlow);
+        cloudFinalColor -= vec3(selfShadow * shadowIntensity) * (1.0 - atmosphericGlow * 0.5);
+        cloudFinalColor = clamp(cloudFinalColor, 0.0, 1.5);
+
+        // Final composition, blending sky color with the clouds
+        float skyBlendMask = smoothstep(0.0, 0.6, cloudDensity);
+        vec3 finalColor = mix(skyColor, cloudFinalColor, skyBlendMask);
 
         return vec4(finalColor, 1.0);
     }

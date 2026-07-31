@@ -10,6 +10,7 @@ import {
     withTiming,
     Easing,
     SharedValue,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import { SkyCanvas, BorderOverlayCanvas } from './SunbeamSkiaCanvas';
 
@@ -53,6 +54,19 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
     const { width, height } = useWindowDimensions();
     // continuous shimmer animation
     const animTime = useSharedValue(0);
+
+    useEffect(() => {
+        animTime.value = withRepeat(
+            withTiming(20, {
+                duration: 20000,
+                easing: Easing.linear,
+            }),
+            -1,
+            false,
+        );
+
+        return () => cancelAnimation(animTime);
+    }, [animTime]);
 
     // mapping the OpenMeteo data to the rotation
     const rotationAngle = useMemo(() => {
@@ -101,7 +115,8 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
             baseColor = lerpColor(TWILIGHT, NIGHT, (currentHour - sunsetEnd) / span);
         }
 
-        return lerpColor(baseColor, stormyGray, (cloudFactor * 0.7));
+        //return lerpColor(baseColor, stormyGray, (cloudFactor * 0.7));
+        return baseColor;
     }, [currentHour, sunriseHour, sunsetHour, cloudCover]);
 
     // pack uniforms for the GPU pipeline

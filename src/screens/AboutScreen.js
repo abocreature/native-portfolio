@@ -349,11 +349,14 @@ export default function AboutScreen() {
         <View style={styles.container}>
             
             <DynamicSunbeamBackground
-                currentHour={currentHour}
+                //currentHour={currentHour}
+                currentHour={12}
                 sunriseHour={sunriseHour}
                 sunsetHour={sunsetHour}
-                cloudCover={weatherData ? weatherData.cloudCover : 0}
-                windSpeed={weatherData ? weatherData.windSpeed : 5}
+                //cloudCover={weatherData ? weatherData.cloudCover : 0}
+                cloudCover={50.0}
+                //windSpeed={weatherData ? weatherData.windSpeed : 5}
+                windSpeed={5.0}
                 cardX={absoluteCardX}
                 cardY={absoluteCardY}
                 cardWidth={dynamicWidth}
