@@ -6,15 +6,9 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Analytics } from '@vercel/analytics/react';
-import { LoadSkiaWeb } from '@shopify/react-native-skia/lib/module/web';
 
 import AboutScreen from './src/screens/AboutScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
-
-const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
-LoadSkiaWeb({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}`
-});
 
 const Tab = createBottomTabNavigator();
 
