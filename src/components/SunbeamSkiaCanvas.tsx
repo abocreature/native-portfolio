@@ -13,7 +13,8 @@ const BACKGROUND_SOURCE = `
 
     // Pseudorandom hash function
     float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1, 311.7))) * 42758.543123);
+        vec2 wrappedP = mod(p, 256.0); // Wrap the input to avoid precision issues
+        return fract(sin(dot(wrappedP, vec2(127.1, 311.7))) * 42758.543123);
     }
 
     // 2D Noise function
