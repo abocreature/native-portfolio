@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, lazy, Suspense } from 'react';
-import { StyleSheet, View, useWindowDimensions, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, } from 'react';
+import { StyleSheet, View, useWindowDimensions, } from 'react-native';
 import {
     WithSkiaWeb
 } from '@shopify/react-native-skia/lib/module/web';
@@ -11,8 +11,8 @@ import {
     Easing,
     SharedValue,
     cancelAnimation,
+    useFrameCallback,
 } from 'react-native-reanimated';
-import { SkyCanvas, BorderOverlayCanvas } from './SunbeamSkiaCanvas';
 
 // Get the exact package version
 const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
@@ -52,28 +52,18 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
     children 
 }) => {
     const { width, height } = useWindowDimensions();
-    // continuous shimmer animation
     const animTime = useSharedValue(0);
+    const sharedCloudCover = useSharedValue(cloudCover / 100);
+    const sharedWindSpeed = useSharedValue(windSpeed);
 
     useEffect(() => {
-        animTime.value = withRepeat(
-            withTiming(20, {
-                duration: 20000,
-                easing: Easing.linear,
-            }),
-            -1,
-            false,
-        );
+        sharedCloudCover.value = cloudCover / 100;
+        sharedWindSpeed.value = windSpeed;
+    }, [cloudCover, windSpeed]);
 
-        return () => cancelAnimation(animTime);
-    }, [animTime]);
-
-    // mapping the OpenMeteo data to the rotation
-    const rotationAngle = useMemo(() => {
-        return (currentHour / 24) * 2 * Math.PI;
-    }, [currentHour]);
-
-    function mixScalar(start: number, end: number, amt: number): number { return start + (end - start) * amt; }
+    useFrameCallback(() => {
+        animTime.value += 0.01;
+    });
 
     // adjust color based on time of day
     const sunColor = useMemo(() => {
@@ -84,8 +74,6 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
         const TWILIGHT = [0.15, 0.25, 0.6]; //Indigo
 
         let baseColor = DAYLIGHT; //Defaults to daylight
-        const cloudFactor = cloudCover / 100;
-        const stormyGray = [0.45, 0.5, 0.6];
 
         const sunriseStart = Math.max(0, sunriseHour - 1.5);
         const sunriseEnd = Math.min(24, sunriseHour + 1.5);
@@ -119,25 +107,16 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
         return baseColor;
     }, [currentHour, sunriseHour, sunsetHour, cloudCover]);
 
-    // pack uniforms for the GPU pipeline
-    const uniforms = useDerivedValue(() => {
+    // Pre-calculate sun trajectory on the CPU
+    const sunPosValue = useMemo(() => {
         const angle = -((currentHour / 24) * 2 * Math.PI) + Math.PI / 2;
         const orbitRadius = Math.max(width, height) * 1.5;
         const centerX = width * 0.5;
         const centerY = height * 0.5;
         const sunX = centerX + Math.cos(angle) * orbitRadius;
         const sunY = centerY + Math.sin(angle) * orbitRadius;
-        return {
-            u_resolution: [width, height],
-            u_time: animTime.value,
-            u_sunPos: [sunX, sunY],
-            u_sunColor: sunColor,
-            u_cloudCover: cloudCover / 100,
-            u_windSpeed: windSpeed,
-        };
+        return [sunX, sunY];
     }, [width, height, currentHour, sunColor, cloudCover, windSpeed]);
-
-    const cdnOpts = { locateFile: (file: string): string => `https://cdn.jsdelivr.net/npm/canvaskit-wasm@${CanvasKit_Version}/bin/full/${file}` };
 
     return (
         <View style={[styles.container, { width, height }]}>
@@ -150,7 +129,14 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
                         const { SkyCanvas } = await import('./SunbeamSkiaCanvas');
 
                         return { 
-                            default: () => <SkyCanvas uniforms={uniforms} /> 
+                            default: () => <SkyCanvas 
+                                u_resolution={[width, height]}
+                                u_sunPos={sunPosValue}
+                                u_sunColor={sunColor}
+                                u_cloudCover={sharedCloudCover}
+                                u_windSpeed={sharedWindSpeed} 
+                                animTime={animTime} 
+                            /> 
                         };
                     }} 
                 />
@@ -169,7 +155,12 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
                         return {
                             default: () => (
                                 <BorderOverlayCanvas
-                                    uniforms={uniforms}
+                                    u_resolution={[width, height]}
+                                    u_sunPos={sunPosValue}
+                                    u_sunColor={sunColor}
+                                    u_cloudCover={sharedCloudCover}
+                                    u_windSpeed={sharedWindSpeed}
+                                    animTime={animTime}
                                     cardX={cardX}
                                     cardY={cardY}
                                     cardWidth={cardWidth}

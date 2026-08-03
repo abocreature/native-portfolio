@@ -1,6 +1,6 @@
-import React, { use } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
-import { Canvas, Shader, Box, Group, Blur, rect, rrect, Skia } from '@shopify/react-native-skia';
+import { Canvas, Shader, Box, rect, Skia } from '@shopify/react-native-skia';
 import { useDerivedValue, SharedValue } from 'react-native-reanimated';
 
 const BACKGROUND_SOURCE = `
@@ -43,12 +43,7 @@ const BACKGROUND_SOURCE = `
         float maxScale = max(u_resolution.x, u_resolution.y);
         vec2 uv = pos / maxScale;
 
-        // Mapping u_time to a linear cross-fade to hide the loop point
-        float loopDuration = 20.0; //needs to match the animation loop timing
-        float progress = u_time / loopDuration;
-        float baseSpeed = u_windSpeed * 0.03;
-        float xOffset1 = progress * loopDuration * baseSpeed;
-        float xOffset2 = (progress - 1.0) * loopDuration * baseSpeed;
+        vec2 windOffset = vec2(u_time * u_windSpeed * 0.03, 0.0);
 
         // Sun Intensity
         float distToSun = length(pos - u_sunPos) / maxScale;
@@ -89,11 +84,8 @@ const BACKGROUND_SOURCE = `
 
         // Cloud Generation
         float cloudSize = 3.0;
-        vec2 cloudUV1 = uv * cloudSize + vec2(xOffset1, 0.0);
-        vec2 cloudUV2 = uv * cloudSize + vec2(xOffset2, 0.0);
-        float noiseLayer1 = fbm(cloudUV1);
-        float noiseLayer2 = fbm(cloudUV2);
-        float cloudNoise = mix(noiseLayer1, noiseLayer2, progress);
+        vec2 cloudUV = uv * cloudSize + windOffset;
+        float cloudNoise = fbm(cloudUV);
         float dynamicCoverage;
         if (u_cloudCover < 0.5) dynamicCoverage = pow(u_cloudCover * 2, 0.4) * 0.5; // Stretches low-end range to avoid threshold drop-off
         else dynamicCoverage = u_cloudCover;
@@ -103,9 +95,7 @@ const BACKGROUND_SOURCE = `
         // Cloud Shadow Generation for fake volume
         vec2 sunDir = normalize((u_sunPos - pos) / maxScale);
         vec2 shadowOffset = sunDir * 0.1;
-        float shadowNoiseL1 = fbm(cloudUV1 - shadowOffset);
-        float shadowNoiseL2 = fbm(cloudUV2 - shadowOffset);
-        float shadowNoise = mix(shadowNoiseL1, shadowNoiseL2, progress);
+        float shadowNoise = fbm(cloudUV - shadowOffset);
         float shadowThreshold = mix(cloudThreshold, 0.55, u_cloudCover);
         float deepDensity = smoothstep(shadowThreshold - 0.15, shadowThreshold + 0.15, shadowNoise);
 
@@ -182,25 +172,25 @@ const FOREGROUND_SOURCE = `
 `;
 
 interface SkyCanvasProps {
-    uniforms: SharedValue<{
-        u_resolution: number[];
-        u_time: number;
-        u_sunPos: number[];
-        u_sunColor: number[];
-        u_cloudCover: number;
-        u_windSpeed: number;
-    }>;
+    
+    u_resolution: number[];
+    u_sunPos: number[];
+    u_sunColor: number[];
+    u_cloudCover: SharedValue<number>;
+    u_windSpeed: SharedValue<number>;
+
+    animTime: SharedValue<number>;
 }
 
 interface BorderOverlayCanvasProps {
-    uniforms: SharedValue<{
-        u_resolution: number[];
-        u_time: number;
-        u_sunPos: number[];
-        u_sunColor: number[];
-        u_cloudCover: number;
-        u_windSpeed: number;
-    }>;
+    
+    u_resolution: number[];
+    u_sunPos: number[];
+    u_sunColor: number[];
+    u_cloudCover: SharedValue<number>;
+    u_windSpeed: SharedValue<number>;
+
+    animTime: SharedValue<number>;
     cardX: SharedValue<number>;
     cardY: SharedValue<number>;
     cardWidth: SharedValue<number>;
@@ -212,38 +202,89 @@ if (!backgroundShader) console.error("Background shader compilation failed!");
 const borderShader = Skia.RuntimeEffect.Make(FOREGROUND_SOURCE);
 if (!borderShader) console.error("Border shader compilation failed!");
 
-export const SkyCanvas: React.FC<SkyCanvasProps> = ({ uniforms }) => {
+export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime }) => {
     const { width, height } = useWindowDimensions();
+    const [canvasEpoch, setCanvasEpoch] = useState(0);
+
+    /*useEffect(() => {
+        const interval = setInterval(() => {
+            // Target the underlying CanvasKit WASM engine on the global window context
+            if (typeof window !== 'undefined' && (window as any).CanvasKit) {
+                try {
+                    (window as any).CanvasKit.MallocPool.cleanUp();
+                } catch (e) {
+                    // Safe catch block if specific browser parameters drop the reference wrapper
+                }
+            }
+
+            setCanvasEpoch((value) => value + 1);
+        }, 200000);
+
+        return () => clearInterval(interval);
+    }, []);*/
+    const dynamicUniforms = useDerivedValue(() => {
+        return {
+            u_resolution: u_resolution,
+            u_sunPos: u_sunPos,
+            u_sunColor: u_sunColor,
+            u_cloudCover: u_cloudCover.value,
+            u_windSpeed: u_windSpeed.value,
+            u_time: animTime.value, 
+        };
+    }, [u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime]);
 
     if (!backgroundShader) return null;
 
     return (
-        <Canvas style={{ width, height, position: 'absolute' }}>
+        <Canvas key={`sky-${canvasEpoch}`} style={{ width, height, position: 'absolute' }}>
             <Box box={rect(0, 0, width, height)}>
-                <Shader source={backgroundShader} uniforms={uniforms} />
+                <Shader source={backgroundShader} uniforms={dynamicUniforms} />
             </Box>
         </Canvas>
     );
 }
 
-export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ uniforms, cardX, cardY, cardWidth, cardHeight }) => {
-  const { width, height } = useWindowDimensions();
+export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime, cardX, cardY, cardWidth, cardHeight }) => {
+    const { width, height } = useWindowDimensions();
+    const [canvasEpoch, setCanvasEpoch] = useState(0);
 
-  if (!borderShader) return null;
+    /*useEffect(() => {
+        const interval = setInterval(() => {
+            // Target the underlying CanvasKit WASM engine on the global window context
+            if (typeof window !== 'undefined' && (window as any).CanvasKit) {
+                try {
+                    (window as any).CanvasKit.MallocPool.cleanUp();
+                } catch (e) {
+                    // Safe catch block if specific browser parameters drop the reference wrapper
+                }
+            }
 
-  const dynamicCompositeUniforms = useDerivedValue(() => {
-    return {
-        ...uniforms.value,
-        u_cardRect: [cardX.value, (cardY.value - cardHeight.value/2), cardWidth.value, cardHeight.value],
-        u_borderRadius: 15.0,
-    };
-  }, [cardX, cardY, cardWidth, cardHeight, uniforms]);
+            setCanvasEpoch((value) => value + 1);
+        }, 2000000);
 
-  return (
-    <Canvas style={{ width, height, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
-        <Box box={rect(0, 0, width, height)}>
-            <Shader source={borderShader} uniforms={dynamicCompositeUniforms} />
-        </Box>
-    </Canvas>
-  );
+        return () => clearInterval(interval);
+    }, []);*/
+
+    if (!borderShader) return null;
+
+    const dynamicCompositeUniforms = useDerivedValue(() => {
+        return {
+            u_resolution: u_resolution,
+            u_sunPos: u_sunPos,
+            u_sunColor: u_sunColor,
+            u_cloudCover: u_cloudCover.value,
+            u_windSpeed: u_windSpeed.value,
+            u_time: animTime.value, 
+            u_cardRect: [cardX.value, (cardY.value - cardHeight.value/2), cardWidth.value, cardHeight.value],
+            u_borderRadius: 15.0,
+        };
+    }, [cardX, cardY, cardWidth, cardHeight, u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime]);
+
+    return (
+        <Canvas key={`sky-${canvasEpoch}`} style={{ width, height, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
+            <Box box={rect(0, 0, width, height)}>
+                <Shader source={borderShader} uniforms={dynamicCompositeUniforms} />
+            </Box>
+        </Canvas>
+    );
 };

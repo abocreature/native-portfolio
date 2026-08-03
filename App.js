@@ -2,8 +2,7 @@ import React from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Analytics } from '@vercel/analytics/react';
 

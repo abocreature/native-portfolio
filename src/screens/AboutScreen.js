@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, useWindowDimensions, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Image, useWindowDimensions, Pressable } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,10 +7,10 @@ import Animated, {
     useSharedValue,
     useDerivedValue,
     useAnimatedStyle,
-    withDecay,
-    withClamp,
     withSpring,
-    useFrameCallback
+    useFrameCallback,
+    withTiming,
+    Easing,
 } from 'react-native-reanimated';
 import { fetchWeatherApi } from 'openmeteo';
 import { DynamicSunbeamBackground } from '../components/DynamicSunbeamBackground';
@@ -21,19 +21,27 @@ export default function AboutScreen() {
 
     // Aligning card dimensions to the style sheet
     const CARD_WIDTH = styles.card.width;
-    const CARD_HEIGHT = styles.card.height;
+    const BASE_CARD_HEIGHT = 180;
+    const EXPANDED_CARD_HEIGHT = 220;
 
     // Calculating boundary limits for the screen edges
     const headerHeight = useHeaderHeight();
     const insets = useSafeAreaInsets();
     const bottomBarHeight = insets.bottom > 0 ? insets.bottom + 49 : 50;
 
+    const [isWeatherDetailsOpen, setIsWeatherDetailsOpen] = useState(false);
+    const detailsHeight = useSharedValue(0);
+    const detailsOpacity = useSharedValue(0);
+    const currentCardHeight = isWeatherDetailsOpen ? EXPANDED_CARD_HEIGHT : BASE_CARD_HEIGHT;
+
     const minX = -screenWidth / 2 + CARD_WIDTH / 2;
     const maxX = screenWidth /2 - CARD_WIDTH / 2;
-    const minY = -screenHeight / 2 + CARD_HEIGHT / 2 + headerHeight;
-    const maxY = screenHeight / 2 - CARD_HEIGHT / 2 - bottomBarHeight;
+    const minY = -screenHeight / 2 + currentCardHeight / 2 + headerHeight;
+    const maxY = screenHeight / 2 - currentCardHeight / 2 - bottomBarHeight;
 
-    const VISUAL_Y_OFFSET = headerHeight - bottomBarHeight; // Calculating the collision offset for the card
+    const VISUAL_Y_OFFSET = isWeatherDetailsOpen ? headerHeight - bottomBarHeight + 32 : headerHeight - bottomBarHeight + 12; // Calculating the collision offset for the card
+    //current issue: Still identifying where the extra 12 and 32 pixels are coming from
+    //prior to adding the drop down, there was still ahn extra 2 pixel offset
 
     // Tracking the position, velocity, and if it's being dragged
     const translateX = useSharedValue(0);
@@ -167,6 +175,17 @@ export default function AboutScreen() {
     const [sunsetHour, setSunsetHour] = useState(18.5);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
+    useEffect(() => {
+        detailsHeight.value = withTiming(isWeatherDetailsOpen ? 40 : 0, {
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+        });
+        detailsOpacity.value = withTiming(isWeatherDetailsOpen ? 1 : 0, {
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+        });
+    }, [detailsHeight, detailsOpacity, isWeatherDetailsOpen]);
+
     // Make clock work
     useEffect(() => {
         const updateClock = () => {
@@ -209,6 +228,11 @@ export default function AboutScreen() {
         let isMounted = true; // To prevent state updates if the component unmounts
 
         const parseApiTimeToDecimalHours = (value) => {
+            if (typeof value === 'bigint') {
+                // Convert BigInt to standard JavaScript number safely
+                value = Number(value); 
+            }
+            
             if (typeof value === 'number' && Number.isFinite(value)) {
                 const asDate = new Date(value * 1000);
                 if (!Number.isNaN(asDate.getTime())) {
@@ -232,8 +256,9 @@ export default function AboutScreen() {
                 latitude: [LATITUDE],
                 longitude: [LONGITUDE],
                 current: 'temperature_2m,is_day,weather_code,cloud_cover,wind_speed_10m',
-                daily: 'sunrise,sunset',
+                daily: ['sunrise','sunset'],
                 temperature_unit: 'fahrenheit',
+                wind_speed_unit: 'mph',
                 timezone: 'auto',
                 models: 'best_match',
             };
@@ -250,14 +275,15 @@ export default function AboutScreen() {
 
                     const current = response.current();
                     const daily = response.daily();
+
                     const temperature = current?.variables(0)?.value();
                     const isDay = current?.variables(1)?.value();
                     const weatherCode = current?.variables(2)?.value();
                     const cloudCover = current?.variables(3)?.value();
                     const windSpeed = current?.variables(4)?.value();
 
-                    const parsedSunrise = parseApiTimeToDecimalHours(daily?.variables(0)?.valuesArray()?.[0]);
-                    const parsedSunset = parseApiTimeToDecimalHours(daily?.variables(1)?.valuesArray()?.[0]);
+                    const parsedSunrise = parseApiTimeToDecimalHours(daily?.variables(0)?.valuesInt64(0));
+                    const parsedSunset = parseApiTimeToDecimalHours(daily?.variables(1)?.valuesInt64(0));
 
                     if (parsedSunrise !== null) {
                         setSunriseHour(parsedSunrise);
@@ -325,15 +351,15 @@ export default function AboutScreen() {
         return ((screenWidth - CARD_WIDTH) / 2) + translateX.value;
     }, [screenWidth]);
     const absoluteCardY = useDerivedValue(() => {
-        return ((screenHeight - CARD_HEIGHT) / 2) + translateY.value + VISUAL_Y_OFFSET;
-    }, [screenHeight]);
+        return ((screenHeight - currentCardHeight) / 2) + translateY.value + VISUAL_Y_OFFSET;
+    }, [screenHeight, currentCardHeight]);
     
     // Mapping the shared values into the standard UI transform styles
     const animatedStyle = useAnimatedStyle(() => {
         return {
             position: 'absolute',
             left: absoluteCardX.value,
-            top: absoluteCardY.value - (CARD_HEIGHT / 2),
+            top: absoluteCardY.value - (currentCardHeight / 2),
             transform: [
                 { scaleX: scaleX.value },
                 { scaleY: scaleY.value }
@@ -343,7 +369,28 @@ export default function AboutScreen() {
 
     // Track size deformations for bloom
     const dynamicWidth = useDerivedValue(() => CARD_WIDTH * scaleX.value);
-    const dynamicHeight = useDerivedValue(() => CARD_HEIGHT * scaleY.value);
+    const dynamicHeight = useDerivedValue(() => currentCardHeight * scaleY.value);
+
+    const detailsAnimatedStyle = useAnimatedStyle(() => ({
+        height: detailsHeight.value,
+        opacity: detailsOpacity.value,
+    }));
+
+    const formatHourLabel = (decimalHour) => {
+        if (decimalHour == null || Number.isNaN(decimalHour)) {
+            return '--:--';
+        }
+
+        const normalizedHour = ((decimalHour % 24) + 24) % 24;
+        const hour = Math.floor(normalizedHour);
+        const minute = Math.round((normalizedHour - hour) * 60);
+        const safeMinute = Math.min(59, Math.max(0, minute));
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+        const displayMinute = safeMinute.toString().padStart(2, '0');
+
+        return `${displayHour}:${displayMinute} ${period}`;
+    };
 
     return (
         <View style={styles.container}>
@@ -364,39 +411,59 @@ export default function AboutScreen() {
             >
                 <View contentContainerStyle={styles.scrollContainer}>
                     <GestureDetector gesture={panGesture}>
-                        <Animated.View style={[styles.card, animatedStyle]}>
+                        <Animated.View style={[styles.card, { height: currentCardHeight }, animatedStyle]}>
                             <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
                             <Text selectable={false} style={styles.subtitle}>Full-Stack Software Engineer</Text>
                             {/* 2. NEW: Integrated Real-Time OpenMeteo Weather Widget Sub-Grid */}
                             {weatherData ? (
-                            <View style={styles.weatherGrid}>
-                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
-                                <Text selectable={false} style={styles.metricLabel}>Temp</Text>
-                                <Text selectable={false} style={styles.metricValue}>
-                                    {weatherData.tempF}°F
-                                </Text>
+                            <View style={styles.weatherSection}>
+                                <View style={styles.weatherGrid}>
+                                    <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
+                                        <Text selectable={false} style={styles.metricLabel}>Temp</Text>
+                                        <Text selectable={false} style={styles.metricValue}>{weatherData.tempF}°F</Text>
+                                    </View>
+
+                                    <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
+                                        <Text selectable={false} style={styles.metricLabel}>Condition</Text>
+                                        <Text selectable={false} style={styles.metricValue} numberOfLines={1}>{weatherData.conditionText}</Text>
+                                    </View>
+
+                                    <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
+                                        <Text selectable={false} style={styles.metricLabel}>Local Time</Text>
+                                        <Text selectable={false} style={styles.metricValue}>{currentTime.split(' ')[0]}</Text>
+                                    </View>
+
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() => setIsWeatherDetailsOpen((prev) => !prev)}
+                                        style={styles.weatherChevronButton}
+                                    >
+                                        <Text selectable={false} style={styles.weatherChevronText}>
+                                            {isWeatherDetailsOpen ? '⌃' : '⌄'}
+                                        </Text>
+                                    </Pressable>
                                 </View>
 
-                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
-                                <Text selectable={false} style={styles.metricLabel}>Condition</Text>
-                                <Text selectable={false} style={styles.metricValue} numberOfLines={1}>
-                                    {weatherData.conditionText}
-                                </Text>
-                                </View>
-                                
-                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
-                                <Text selectable={false} style={styles.metricLabel}>Clouds</Text>
-                                <Text selectable={false} style={styles.metricValue} numberOfLines={1}>
-                                    {weatherData.cloudCover ?? 0}%
-                                </Text>
-                                </View>
-
-                                <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
-                                <Text selectable={false} style={styles.metricLabel}>Local Time</Text>
-                                <Text selectable={false} style={styles.metricValue}>
-                                    {currentTime.split(' ')[0]} {/* Renders clean HH:MM:SS text layout */}
-                                </Text>
-                                </View>
+                                <Animated.View style={[styles.weatherDetailsPanel, detailsAnimatedStyle]}>
+                                    <View style={styles.weatherDetailsGrid}>
+                                        <View style={styles.weatherDetailsColumn}>
+                                            <Text selectable={false} style={styles.detailLabel}>Clouds</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{weatherData.cloudCover ?? 0}%</Text>
+                                        </View>
+                                        <View style={styles.weatherDetailsColumn}>
+                                            <Text selectable={false} style={styles.detailLabel}>Wind</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{weatherData.windSpeed ?? 0} mph</Text>
+                                        </View>
+                                        <View style={styles.weatherDetailsColumn}>
+                                            <Text selectable={false} style={styles.detailLabel}>Sunrise</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{formatHourLabel(sunriseHour)}</Text>
+                                        </View>
+                                        <View style={styles.weatherDetailsColumn}>
+                                            <Text selectable={false} style={styles.detailLabel}>Sunset</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{formatHourLabel(sunsetHour)}</Text>
+                                        </View>
+                                    </View>
+                                </Animated.View>
                             </View>
                             ) : (
                             <Text selectable={false} style={styles.loadingText}>Fetching forecast metadata...</Text>
@@ -423,7 +490,7 @@ const styles = StyleSheet.create({
     card: { 
         backgroundColor: '#121212',
         width: 320,
-        height: 160, 
+        minHeight: 180, 
         padding: 30, 
         borderRadius: 15, 
         shadowColor: '#000', 
@@ -431,9 +498,10 @@ const styles = StyleSheet.create({
         shadowRadius: 10, 
         elevation: 5,
         zIndex: 1000,
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
         alignItems: 'center',
-        cursor: 'grab'
+        cursor: 'grab',
+        overflow: 'hidden',
     },
     title: { 
         fontSize: 28, 
@@ -457,16 +525,20 @@ const styles = StyleSheet.create({
     infotitle: {
         fontSize: 10,
         color: '#fff',
-        marginTop: 5,
+        marginTop: 4,
         justifyContent: 'center',
         textAlign: 'center'
+    },
+    weatherSection: {
+        width: '100%',
+        marginTop: 8,
+        marginBottom: 0,
     },
     weatherGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         paddingHorizontal: 0,
-        marginTop: 2,
         width: '100%',
         gap: 0,
     },
@@ -483,7 +555,7 @@ const styles = StyleSheet.create({
     },
     weatherMetricItemWide: {
         flexBasis: 1.4,
-        flexGrow: 1.4,
+        flexGrow: 1.2,
         flexShrink: 1,
     },
     metricLabel: {
@@ -496,6 +568,53 @@ const styles = StyleSheet.create({
     },
     metricValue: {
         fontSize: 13,
+        fontWeight: 'bold',
+        color: '#d7dfe9',
+        textAlign: 'center',
+    },
+    weatherChevronButton: {
+        width: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 4,
+    },
+    weatherChevronText: {
+        fontSize: 16,
+        color: '#bbff00',
+        fontWeight: '700',
+        lineHeight: 16,
+    },
+    weatherDetailsPanel: {
+        overflow: 'hidden',
+        marginTop: 4,
+        paddingTop: 4,
+        paddingBottom: 2,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.12)',
+    },
+    weatherDetailsGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 2,
+    },
+    weatherDetailsColumn: {
+        flex: 1,
+        minWidth: 0,
+        alignItems: 'center',
+        paddingHorizontal: 2,
+    },
+    detailLabel: {
+        fontSize: 9,
+        textTransform: 'uppercase',
+        color: '#8a99ad',
+        fontWeight: '600',
+        letterSpacing: 0.4,
+        marginBottom: 2,
+    },
+    detailValue: {
+        fontSize: 11,
         fontWeight: 'bold',
         color: '#d7dfe9',
         textAlign: 'center',
