@@ -18,9 +18,9 @@ import {
 const CanvasKit_Version = require('canvaskit-wasm/package.json').version;
 
 interface SunbeamProps {
-    currentHour: number; // OpenMeteo time in decimal
-    sunriseHour?: number; // OpenMeteo sunrise time in decimal hours
-    sunsetHour?: number; // OpenMeteo sunset time in decimal hours
+    targetTimezone: string; // Timezone for the location, e.g., "America/New_York"
+    sunriseHour: number; // OpenMeteo sunrise time in decimal hours
+    sunsetHour: number; // OpenMeteo sunset time in decimal hours
     cloudCover: number; // OpenMeteo cloud cover percentage
     windSpeed: number; // OpenMeteo wind speed
     cardX: SharedValue<number>;
@@ -30,17 +30,8 @@ interface SunbeamProps {
     children: React.ReactNode;
 }
 
-// Vector math helper
-function lerpColor(c1: number[], c2: number[], factor: number): number[] {
-    return [
-        c1[0] + (c2[0] - c1[0]) * factor,
-        c1[1] + (c2[1] - c1[1]) * factor,
-        c1[2] + (c2[2] - c1[2]) * factor,
-    ];
-}
-
 export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({ 
-    currentHour, 
+    targetTimezone,
     sunriseHour = 6.5,
     sunsetHour = 18.5,
     cloudCover = 0, 
@@ -55,68 +46,20 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
     const animTime = useSharedValue(0);
     const sharedCloudCover = useSharedValue(cloudCover / 100);
     const sharedWindSpeed = useSharedValue(windSpeed);
+    const sharedSunsetHour = useSharedValue(sunsetHour);
+    const sharedSunriseHour = useSharedValue(sunriseHour);
+    const sharedTimezone = useSharedValue(targetTimezone);
 
     useEffect(() => {
         sharedCloudCover.value = cloudCover / 100;
         sharedWindSpeed.value = windSpeed;
-    }, [cloudCover, windSpeed]);
+        sharedSunsetHour.value = sunsetHour;
+        sharedSunriseHour.value = sunriseHour;
+    }, [cloudCover, windSpeed, sunsetHour, sunriseHour]);
 
     useFrameCallback(() => {
         animTime.value += 0.01;
     });
-
-    // adjust color based on time of day
-    const sunColor = useMemo(() => {
-        const NIGHT = [0.15, 0.25, 0.45];   //Deep Blue
-        const SUNRISE = [1.0, 0.55, 0.25];  //Gold
-        const DAYLIGHT = [1.4, 1.4, 1.4];   //White
-        const SUNSET = [1.1, 0.5, 0.2];     //Orange
-        const TWILIGHT = [0.15, 0.25, 0.6]; //Indigo
-
-        let baseColor = DAYLIGHT; //Defaults to daylight
-
-        const sunriseStart = Math.max(0, sunriseHour - 1.5);
-        const sunriseEnd = Math.min(24, sunriseHour + 1.5);
-        const sunsetStart = Math.max(0, sunsetHour - 1.5);
-        const sunsetEnd = Math.min(24, sunsetHour + 1.5);
-
-        if (currentHour < sunriseStart) baseColor = NIGHT;
-        if (currentHour >= sunriseStart && currentHour < sunriseHour) {
-            const span = Math.max(0.01, sunriseHour - sunriseStart);
-            baseColor = lerpColor(NIGHT, SUNRISE, (currentHour - sunriseStart) / span);
-        }
-        if (currentHour >= sunriseHour && currentHour < sunriseEnd) {
-            const span = Math.max(0.01, sunriseEnd - sunriseHour);
-            baseColor = lerpColor(SUNRISE, DAYLIGHT, (currentHour - sunriseHour) / span);
-        }
-        if (currentHour >= sunriseEnd && currentHour < sunsetStart) baseColor = DAYLIGHT;
-        if (currentHour >= sunsetStart && currentHour < sunsetHour) {
-            const span = Math.max(0.01, sunsetHour - sunsetStart);
-            baseColor = lerpColor(DAYLIGHT, SUNSET, (currentHour - sunsetStart) / span);
-        }
-        if (currentHour >= sunsetHour && currentHour < sunsetEnd) {
-            const span = Math.max(0.01, sunsetEnd - sunsetHour);
-            baseColor = lerpColor(SUNSET, TWILIGHT, (currentHour - sunsetHour) / span);
-        }
-        if (currentHour >= sunsetEnd) {
-            const span = Math.max(0.01, 24 - sunsetEnd);
-            baseColor = lerpColor(TWILIGHT, NIGHT, (currentHour - sunsetEnd) / span);
-        }
-
-        //return lerpColor(baseColor, stormyGray, (cloudFactor * 0.7));
-        return baseColor;
-    }, [currentHour, sunriseHour, sunsetHour, cloudCover]);
-
-    // Pre-calculate sun trajectory on the CPU
-    const sunPosValue = useMemo(() => {
-        const angle = -((currentHour / 24) * 2 * Math.PI) + Math.PI / 2;
-        const orbitRadius = Math.max(width, height) * 1.5;
-        const centerX = width * 0.5;
-        const centerY = height * 0.5;
-        const sunX = centerX + Math.cos(angle) * orbitRadius;
-        const sunY = centerY + Math.sin(angle) * orbitRadius;
-        return [sunX, sunY];
-    }, [width, height, currentHour, sunColor, cloudCover, windSpeed]);
 
     return (
         <View style={[styles.container, { width, height }]}>
@@ -131,8 +74,9 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
                         return { 
                             default: () => <SkyCanvas 
                                 u_resolution={[width, height]}
-                                u_sunPos={sunPosValue}
-                                u_sunColor={sunColor}
+                                targetTimezone={sharedTimezone}
+                                sunriseHour={sharedSunriseHour}
+                                sunsetHour={sharedSunsetHour}
                                 u_cloudCover={sharedCloudCover}
                                 u_windSpeed={sharedWindSpeed} 
                                 animTime={animTime} 
@@ -156,8 +100,9 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
                             default: () => (
                                 <BorderOverlayCanvas
                                     u_resolution={[width, height]}
-                                    u_sunPos={sunPosValue}
-                                    u_sunColor={sunColor}
+                                    targetTimezone={sharedTimezone}
+                                    sunriseHour={sharedSunriseHour}
+                                    sunsetHour={sharedSunsetHour}
                                     u_cloudCover={sharedCloudCover}
                                     u_windSpeed={sharedWindSpeed}
                                     animTime={animTime}

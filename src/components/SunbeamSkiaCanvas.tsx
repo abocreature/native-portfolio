@@ -175,8 +175,9 @@ const FOREGROUND_SOURCE = `
 interface SkyCanvasProps {
     
     u_resolution: number[];
-    u_sunPos: number[];
-    u_sunColor: number[];
+    targetTimezone: SharedValue<string>;
+    sunriseHour: SharedValue<number>;
+    sunsetHour: SharedValue<number>;
     u_cloudCover: SharedValue<number>;
     u_windSpeed: SharedValue<number>;
 
@@ -186,8 +187,9 @@ interface SkyCanvasProps {
 interface BorderOverlayCanvasProps {
     
     u_resolution: number[];
-    u_sunPos: number[];
-    u_sunColor: number[];
+    targetTimezone: SharedValue<string>;
+    sunriseHour: SharedValue<number>;
+    sunsetHour: SharedValue<number>;
     u_cloudCover: SharedValue<number>;
     u_windSpeed: SharedValue<number>;
 
@@ -203,36 +205,104 @@ if (!backgroundShader) console.error("Background shader compilation failed!");
 const borderShader = Skia.RuntimeEffect.Make(FOREGROUND_SOURCE);
 if (!borderShader) console.error("Border shader compilation failed!");
 
-export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime }) => {
+function lerpColor(c1: number[], c2: number[], factor: number): number[] { // Vector color interpolator
+    return [
+        c1[0] + (c2[0] - c1[0]) * factor,
+        c1[1] + (c2[1] - c1[1]) * factor,
+        c1[2] + (c2[2] - c1[2]) * factor,
+    ];
+}
+
+function colorFinder(hour: number, sunrise: number, sunset: number): number[] {
+    const NIGHT = [0.15, 0.25, 0.45];   //Deep Blue
+    const SUNRISE = [1.0, 0.55, 0.25];  //Gold
+    const DAYLIGHT = [1.4, 1.4, 1.4];   //White
+    const SUNSET = [1.1, 0.5, 0.2];     //Orange
+    const TWILIGHT = [0.15, 0.25, 0.6]; //Indigo
+
+    let baseColor = DAYLIGHT; //Defaults to daylight
+
+    const sunriseStart = Math.max(0, sunrise - 1.5);
+    const sunriseEnd = Math.min(24, sunrise + 1.5);
+    const sunsetStart = Math.max(0, sunset - 1.5);
+    const sunsetEnd = Math.min(24, sunset + 1.5);
+    //console.log (hour, sunriseStart, sunrise, sunriseEnd, sunsetStart, sunset, sunsetEnd);
+
+    if (hour < sunriseStart) baseColor = NIGHT;
+    if (hour >= sunriseStart && hour < sunrise) {
+        const span = Math.max(0.01, sunrise - sunriseStart);
+        baseColor = lerpColor(NIGHT, SUNRISE, (hour - sunriseStart) / span);
+    }
+    if (hour >= sunrise && hour < sunriseEnd) {
+        const span = Math.max(0.01, sunriseEnd - sunrise);
+        baseColor = lerpColor(SUNRISE, DAYLIGHT, (hour - sunrise) / span);
+    }
+    if (hour >= sunriseEnd && hour < sunsetStart) baseColor = DAYLIGHT;
+    if (hour >= sunsetStart && hour < sunset) {
+        const span = Math.max(0.01, sunset - sunsetStart);
+        baseColor = lerpColor(DAYLIGHT, SUNSET, (hour - sunsetStart) / span);
+    }
+    if (hour >= sunset && hour < sunsetEnd) {
+        const span = Math.max(0.01, sunsetEnd - sunset);
+        baseColor = lerpColor(SUNSET, TWILIGHT, (hour - sunset) / span);
+    }
+    if (hour >= sunsetEnd) {
+        const span = Math.max(0.01, 24 - sunsetEnd);
+        baseColor = lerpColor(TWILIGHT, NIGHT, (hour - sunsetEnd) / span);
+    }
+
+    //return lerpColor(baseColor, stormyGray, (cloudFactor * 0.7));
+    return baseColor;
+}
+
+export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime }) => {
     const { width, height } = useWindowDimensions();
     const [canvasEpoch, setCanvasEpoch] = useState(0);
 
-    /*useEffect(() => {
-        const interval = setInterval(() => {
-            // Target the underlying CanvasKit WASM engine on the global window context
-            if (typeof window !== 'undefined' && (window as any).CanvasKit) {
-                try {
-                    (window as any).CanvasKit.MallocPool.cleanUp();
-                } catch (e) {
-                    // Safe catch block if specific browser parameters drop the reference wrapper
-                }
-            }
-
-            setCanvasEpoch((value) => value + 1);
-        }, 200000);
-
-        return () => clearInterval(interval);
-    }, []);*/
     const dynamicUniforms = useDerivedValue(() => {
+        const [w, h] = u_resolution;
+        const orbitRadius = Math.max(w, h) * 1.5;
+        const centerX = w * 0.5;
+        const centerY = h * 0.5;
+        const horizonY = centerY; //defines the horizon for the day/night cycle
+        const now = new Date();const hourString = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            hour12: false, // Forces 24-hour calculation
+            timeZone: targetTimezone.value,
+        });
+        const minuteString = now.toLocaleTimeString('en-US', { 
+            minute: '2-digit', 
+            timeZone: targetTimezone.value 
+        });
+        const secondString = now.toLocaleTimeString('en-US', { 
+            second: '2-digit', 
+            timeZone: targetTimezone.value 
+        });
+
+        const liveHour = parseInt(hourString, 10) + (parseInt(minuteString, 10) / 60) + (parseInt(secondString, 10) / 3600);
+        const dayLength = sunsetHour.value - sunriseHour.value;
+        const nightLength = 24.0 - dayLength;
+        let mockTime = 0;
+        if (liveHour >= sunriseHour.value && liveHour <= sunsetHour.value) {
+            mockTime = ((liveHour - sunriseHour.value) / dayLength) * 12 + 6;
+        }
+        else if (liveHour > sunsetHour.value) {
+            mockTime = ((liveHour - sunsetHour.value) / nightLength) * 12 + 18;
+        }
+        else mockTime = (((liveHour + 24 - sunsetHour.value) / nightLength) * 12 + 18) % 24;
+        //console.log (sunriseHour, sunsetHour);
+        const angle = -((mockTime / 24) * 2 * Math.PI) + Math.PI / 2;
+        const sunX = centerX + Math.cos(angle) * orbitRadius;
+        const sunY = horizonY + Math.sin(angle) * orbitRadius;
         return {
             u_resolution: u_resolution,
-            u_sunPos: u_sunPos,
-            u_sunColor: u_sunColor,
+            u_sunPos: [sunX, sunY],
+            u_sunColor: colorFinder(liveHour, sunriseHour.value, sunsetHour.value),
             u_cloudCover: u_cloudCover.value,
             u_windSpeed: u_windSpeed.value,
             u_time: animTime.value, 
         };
-    }, [u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime]);
+    }, [u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime]);
 
     if (!backgroundShader) return null;
 
@@ -245,41 +315,57 @@ export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, u_sunPos, u_
     );
 }
 
-export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime, cardX, cardY, cardWidth, cardHeight }) => {
+export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime, cardX, cardY, cardWidth, cardHeight }) => {
     const { width, height } = useWindowDimensions();
     const [canvasEpoch, setCanvasEpoch] = useState(0);
-
-    /*useEffect(() => {
-        const interval = setInterval(() => {
-            // Target the underlying CanvasKit WASM engine on the global window context
-            if (typeof window !== 'undefined' && (window as any).CanvasKit) {
-                try {
-                    (window as any).CanvasKit.MallocPool.cleanUp();
-                } catch (e) {
-                    // Safe catch block if specific browser parameters drop the reference wrapper
-                }
-            }
-
-            setCanvasEpoch((value) => value + 1);
-        }, 2000000);
-
-        return () => clearInterval(interval);
-    }, []);*/
 
     if (!borderShader) return null;
 
     const dynamicCompositeUniforms = useDerivedValue(() => {
+        const [w, h] = u_resolution;
+        const orbitRadius = Math.max(w, h) * 1.5;
+        const centerX = w * 0.5;
+        const centerY = h * 0.5;
+        const horizonY = centerY; //defines the horizon for the day/night cycle
+        const now = new Date();const hourString = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            hour12: false, // Forces 24-hour calculation
+            timeZone: targetTimezone.value,
+        });
+        const minuteString = now.toLocaleTimeString('en-US', { 
+            minute: '2-digit', 
+            timeZone: targetTimezone.value 
+        });
+        const secondString = now.toLocaleTimeString('en-US', { 
+            second: '2-digit', 
+            timeZone: targetTimezone.value 
+        });
+
+        const liveHour = parseInt(hourString, 10) + (parseInt(minuteString, 10) / 60) + (parseInt(secondString, 10) / 3600);
+        const dayLength = sunsetHour.value - sunriseHour.value;
+        const nightLength = 24.0 - dayLength;
+        let mockTime = 0;
+        if (liveHour >= sunriseHour.value && liveHour <= sunsetHour.value) {
+            mockTime = ((liveHour - sunriseHour.value) / dayLength) * 12 + 6;
+        }
+        else if (liveHour > sunsetHour.value) {
+            mockTime = ((liveHour - sunsetHour.value) / nightLength) * 12 + 18;
+        }
+        else mockTime = (((liveHour + 24 - sunsetHour.value) / nightLength) * 12 + 18) % 24;
+        const angle = -((mockTime / 24) * 2 * Math.PI) + Math.PI / 2;
+        const sunX = centerX + Math.cos(angle) * orbitRadius;
+        const sunY = horizonY + Math.sin(angle) * orbitRadius;
         return {
             u_resolution: u_resolution,
-            u_sunPos: u_sunPos,
-            u_sunColor: u_sunColor,
+            u_sunPos: [sunX, sunY],
+            u_sunColor: colorFinder(liveHour, sunriseHour.value, sunsetHour.value),
             u_cloudCover: u_cloudCover.value,
             u_windSpeed: u_windSpeed.value,
             u_time: animTime.value, 
             u_cardRect: [cardX.value, (cardY.value - cardHeight.value/2), cardWidth.value, cardHeight.value],
             u_borderRadius: 15.0,
         };
-    }, [cardX, cardY, cardWidth, cardHeight, u_resolution, u_sunPos, u_sunColor, u_cloudCover, u_windSpeed, animTime]);
+    }, [cardX, cardY, cardWidth, cardHeight, u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime]);
 
     return (
         <Canvas key={`sky-${canvasEpoch}`} style={{ width, height, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">

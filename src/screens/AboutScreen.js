@@ -396,8 +396,7 @@ export default function AboutScreen() {
         <View style={styles.container}>
             
             <DynamicSunbeamBackground
-                currentHour={currentHour}
-                //currentHour={1}
+                targetTimezone={targetTimezone}
                 sunriseHour={sunriseHour}
                 sunsetHour={sunsetHour}
                 cloudCover={weatherData ? weatherData.cloudCover : 0}
