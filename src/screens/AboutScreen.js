@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Image, useWindowDimensions, Pressable } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -60,6 +60,9 @@ export default function AboutScreen() {
 
     const contextX = useSharedValue(0);
     const contextY = useSharedValue(0);
+
+    // Flip animation
+    const flip = useSharedValue(0); // 0 = front, 180 = back
 
     // Physics tweaking
     const FRICTION = 0.96;
@@ -167,12 +170,16 @@ export default function AboutScreen() {
     // State for the current time and weather data    
     const LATITUDE = '35.82';
     const LONGITUDE = '-82.58';
-    const [targetTimezone, setTargetTimezone] = useState('America/New_York'); //fallback to local timezone
+    const [userIP, setUserIP] = useState('Fetching IP...');
+    const [userCity, setUserCity] = useState('Fetching City...');
+    const [userRegion, setUserRegion] = useState('Fetching Region...');
+    const [frontWeatherData, setFrontWeatherData] = useState(null);
+    const [backWeatherData, setBackWeatherData] = useState(null);
+    const [isFlipped, setIsFlipped] = useState(false);
+    const flipTimeoutRef = useRef(null);
     const [currentTime, setCurrentTime] = useState('');
     const [currentHour, setCurrentHour] = useState(new Date().getHours()); //fallback to local time
     const [weatherData, setWeatherData] = useState(null);
-    const [sunriseHour, setSunriseHour] = useState(6.5);
-    const [sunsetHour, setSunsetHour] = useState(18.5);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
     useEffect(() => {
@@ -196,22 +203,22 @@ export default function AboutScreen() {
                     minute: '2-digit',
                     second: '2-digit',
                     hour12: true,
-                    timeZone: targetTimezone,
+                    timeZone: isFlipped ? (backWeatherData ? backWeatherData.timezone : 'America/New_York') : (frontWeatherData ? frontWeatherData.timezone : 'America/New_York'),
                 })
             );
 
             const hourString = now.toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 hour12: false, // Forces 24-hour calculation
-                timeZone: targetTimezone,
+                timeZone: isFlipped ? (backWeatherData ? backWeatherData.timezone : 'America/New_York') : (frontWeatherData ? frontWeatherData.timezone : 'America/New_York'),
             });
             const minuteString = now.toLocaleTimeString('en-US', { 
                 minute: '2-digit', 
-                timeZone: targetTimezone 
+                timeZone: isFlipped ? (backWeatherData ? backWeatherData.timezone : 'America/New_York') : (frontWeatherData ? frontWeatherData.timezone : 'America/New_York')
             });
             const secondString = now.toLocaleTimeString('en-US', { 
                 second: '2-digit', 
-                timeZone: targetTimezone 
+                timeZone: isFlipped ? (backWeatherData ? backWeatherData.timezone : 'America/New_York') : (frontWeatherData ? frontWeatherData.timezone : 'America/New_York')
             });
     
             const decimalHour = parseInt(hourString, 10) + (parseInt(minuteString, 10) / 60) + (parseInt(secondString, 10) / 3600);
@@ -221,7 +228,7 @@ export default function AboutScreen() {
         updateClock(); // Initial call to set the time immediately
         const timerId = setInterval(updateClock, 1000); // Update every second
         return () => clearInterval(timerId);
-    }, [targetTimezone]);
+    }, [isFlipped, frontWeatherData, backWeatherData]);
 
     // Grabs weather data using Open-Meteo API
     useEffect(() => {
@@ -251,10 +258,32 @@ export default function AboutScreen() {
             return null;
         };
 
-        const fetchWeatherData = async () => {
+        const fetchWeatherData = async (useIP = false) => {
+            let targetLat = LATITUDE;
+            let targetLong = LONGITUDE;
+
+            if (useIP) {
+                try {
+                    const geoResponse = await fetch('https://ipapi.co/json/');
+                    if (geoResponse.ok) {
+                        const geoData = await geoResponse.json();
+                        if (geoData.ip && isMounted) setUserIP(geoData.ip);
+                        if (geoData.city && isMounted) setUserCity(geoData.city);
+                        if (geoData.region && isMounted) setUserRegion(geoData.region);
+                        if (typeof geoData.latitude === 'number' && typeof geoData.longitude === 'number') {
+                            targetLat = geoData.latitude;
+                            targetLong = geoData.longitude;
+                            console.log('IP lat:', targetLat, 'IP long:', targetLong);
+                        }
+                    }
+                } catch (geoError) {
+                    console.error('IP lookup blocked or failed, falling back to static boundaries:', geoError);
+                }
+            }
+
             const params = {
-                latitude: [LATITUDE],
-                longitude: [LONGITUDE],
+                latitude: [targetLat],
+                longitude: [targetLong],
                 current: 'temperature_2m,is_day,weather_code,cloud_cover,wind_speed_10m',
                 daily: ['sunrise','sunset'],
                 temperature_unit: 'fahrenheit',
@@ -269,9 +298,6 @@ export default function AboutScreen() {
 
                 if (response && isMounted) {
                     const timezone = response.timezone();
-                    if (timezone) {
-                        setTargetTimezone(timezone);
-                    }
 
                     const current = response.current();
                     const daily = response.daily();
@@ -284,13 +310,6 @@ export default function AboutScreen() {
 
                     const parsedSunrise = parseApiTimeToDecimalHours(daily?.variables(0)?.valuesInt64(0));
                     const parsedSunset = parseApiTimeToDecimalHours(daily?.variables(1)?.valuesInt64(0));
-
-                    if (parsedSunrise !== null) {
-                        setSunriseHour(parsedSunrise);
-                    }
-                    if (parsedSunset !== null) {
-                        setSunsetHour(parsedSunset);
-                    }
 
                     // Open-Meteo uses WMO Weather Interpretation Codes https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
                     const code = weatherCode ?? 0;
@@ -325,7 +344,16 @@ export default function AboutScreen() {
                         isDay: isDay === 1,
                         cloudCover: Math.round(cloudCover ?? 0),
                         windSpeed: Math.round(windSpeed ?? 5),
+                        sunrise: parsedSunrise ?? 6.5,
+                        sunset: parsedSunset ?? 18.5,
+                        timezone: timezone ?? 'America/New_York',
                     });
+
+                    if (useIP) {
+                        setBackWeatherData(weatherData);
+                    } else {
+                        setFrontWeatherData(weatherData);
+                    }
                 } else {
                     console.error('Open-Meteo returned no response');
                 }
@@ -338,8 +366,12 @@ export default function AboutScreen() {
             }
         };
 
-        fetchWeatherData();
-        const weatherInterval = setInterval(fetchWeatherData, 5*60*1000); // Refresh every five minutes
+        fetchWeatherData(false);
+        fetchWeatherData(true)
+        const weatherInterval = setInterval(() => {
+            fetchWeatherData(false);
+            fetchWeatherData(true);
+        }, 5 * 60 * 1000); // Refresh every five minutes
         return () => {
             isMounted = false; // Prevent state updates if the component unmounts
             clearInterval(weatherInterval);
@@ -363,18 +395,67 @@ export default function AboutScreen() {
             transform: [
                 { scaleX: scaleX.value },
                 { scaleY: scaleY.value }
+                , { perspective: 1000 }
             ]
         };
     });
+
+    // Individual face rotations so text stays readable (not mirrored)
+    const frontAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            { perspective: 1000 },
+            { rotateY: `${flip.value}deg` }
+        ]
+    }));
+
+    const backAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            { perspective: 1000 },
+            { rotateY: `${flip.value - 180}deg` }
+        ]
+    }));
 
     // Track size deformations for bloom
     const dynamicWidth = useDerivedValue(() => CARD_WIDTH * scaleX.value);
     const dynamicHeight = useDerivedValue(() => currentCardHeight * scaleY.value);
 
+    // Visible width should reflect 3D flip (narrow at 90deg). Keep a small minimum.
+    const visibleCardWidth = useDerivedValue(() => {
+        const angleRad = (flip.value * Math.PI) / 180;
+        const factor = Math.abs(Math.cos(angleRad));
+        return Math.max(1, CARD_WIDTH * factor * scaleX.value);
+    });
+
+    // Visible X computed so width changes are centered: left = center - visibleWidth/2
+    const visibleCardX = useDerivedValue(() => {
+        // center of the card based on unscaled CARD_WIDTH and translate
+        const centerX = absoluteCardX.value + CARD_WIDTH / 2;
+        const width = visibleCardWidth.value; // current visible width
+        return centerX - (width / 2);
+    });
+
     const detailsAnimatedStyle = useAnimatedStyle(() => ({
         height: detailsHeight.value,
         opacity: detailsOpacity.value,
     }));
+
+    // Toggle flip and update the isFlipped flag halfway through the animation.
+    const toggleFlip = () => {
+        const DURATION = 600;
+        const to = flip.value === 0 ? 180 : 0;
+        const nextFlipped = to === 180;
+
+        if (flipTimeoutRef.current) {
+            clearTimeout(flipTimeoutRef.current);
+            flipTimeoutRef.current = null;
+        }
+
+        flip.value = withTiming(to, { duration: DURATION, easing: Easing.out(Easing.cubic) });
+        flipTimeoutRef.current = setTimeout(() => {
+            setIsFlipped(nextFlipped);
+            flipTimeoutRef.current = null;
+        }, DURATION / 2);
+    };
 
     const formatHourLabel = (decimalHour) => {
         if (decimalHour == null || Number.isNaN(decimalHour)) {
@@ -396,35 +477,42 @@ export default function AboutScreen() {
         <View style={styles.container}>
             
             <DynamicSunbeamBackground
-                targetTimezone={targetTimezone}
-                sunriseHour={sunriseHour}
-                sunsetHour={sunsetHour}
-                cloudCover={weatherData ? weatherData.cloudCover : 0}
+                targetTimezone={isFlipped ? (backWeatherData ? backWeatherData.timezone : 'America/New_York') : (frontWeatherData ? frontWeatherData.timezone : 'America/New_York')}
+                sunriseHour={isFlipped ? (backWeatherData ? backWeatherData.sunrise : 6.5) : (frontWeatherData ? frontWeatherData.sunrise : 6.5)}
+                sunsetHour={isFlipped ? (backWeatherData ? backWeatherData.sunset : 18.5) : (frontWeatherData ? frontWeatherData.sunset : 18.5)}
+                cloudCover={isFlipped ? (backWeatherData ? backWeatherData.cloudCover : 0.0) : (frontWeatherData ? frontWeatherData.cloudCover : 0.0)}
                 //cloudCover={50.0}
-                windSpeed={weatherData ? weatherData.windSpeed : 5}
+                windSpeed={isFlipped ? (backWeatherData ? backWeatherData.windSpeed : 5.0) : (frontWeatherData ? frontWeatherData.windSpeed : 5.0)}
                 //windSpeed={5.0}
-                cardX={absoluteCardX}
+                cardX={visibleCardX}
                 cardY={absoluteCardY}
-                cardWidth={dynamicWidth}
+                cardWidth={visibleCardWidth}
                 cardHeight={dynamicHeight}
             >
                 <View contentContainerStyle={styles.scrollContainer}>
                     <GestureDetector gesture={panGesture}>
                         <Animated.View style={[styles.card, { height: currentCardHeight }, animatedStyle]}>
-                            <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
-                            <Text selectable={false} style={styles.subtitle}>Full-Stack Software Engineer</Text>
+                            <Pressable accessibilityRole="button" onPress={toggleFlip} style={styles.flipButton}>
+                                <Animated.View style={styles.flipButtonCircle}>
+                                    <Text selectable={false} style={styles.arrowText}>↻</Text>
+                                </Animated.View>
+                            </Pressable>
+
+                            <Animated.View style={[styles.cardFace, styles.cardFront, frontAnimatedStyle]}>
+                                <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
+                                <Text selectable={false} style={styles.subtitle}>Full-Stack Software Engineer</Text>
                             {/* 2. NEW: Integrated Real-Time OpenMeteo Weather Widget Sub-Grid */}
-                            {weatherData ? (
+                            {frontWeatherData ? (
                             <View style={styles.weatherSection}>
                                 <View style={styles.weatherGrid}>
                                     <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
                                         <Text selectable={false} style={styles.metricLabel}>Temp</Text>
-                                        <Text selectable={false} style={styles.metricValue}>{weatherData.tempF}°F</Text>
+                                        <Text selectable={false} style={styles.metricValue}>{frontWeatherData.tempF}°F</Text>
                                     </View>
 
                                     <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
                                         <Text selectable={false} style={styles.metricLabel}>Condition</Text>
-                                        <Text selectable={false} style={styles.metricValue} numberOfLines={1}>{weatherData.conditionText}</Text>
+                                        <Text selectable={false} style={styles.metricValue} numberOfLines={1}>{frontWeatherData.conditionText}</Text>
                                     </View>
 
                                     <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
@@ -447,19 +535,19 @@ export default function AboutScreen() {
                                     <View style={styles.weatherDetailsGrid}>
                                         <View style={styles.weatherDetailsColumn}>
                                             <Text selectable={false} style={styles.detailLabel}>Clouds</Text>
-                                            <Text selectable={false} style={styles.detailValue}>{weatherData.cloudCover ?? 0}%</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{frontWeatherData.cloudCover ?? 0}%</Text>
                                         </View>
                                         <View style={styles.weatherDetailsColumn}>
                                             <Text selectable={false} style={styles.detailLabel}>Wind</Text>
-                                            <Text selectable={false} style={styles.detailValue}>{weatherData.windSpeed ?? 0} mph</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{frontWeatherData.windSpeed ?? 0} mph</Text>
                                         </View>
                                         <View style={styles.weatherDetailsColumn}>
                                             <Text selectable={false} style={styles.detailLabel}>Sunrise</Text>
-                                            <Text selectable={false} style={styles.detailValue}>{formatHourLabel(sunriseHour)}</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{formatHourLabel(frontWeatherData.sunrise)}</Text>
                                         </View>
                                         <View style={styles.weatherDetailsColumn}>
                                             <Text selectable={false} style={styles.detailLabel}>Sunset</Text>
-                                            <Text selectable={false} style={styles.detailValue}>{formatHourLabel(sunsetHour)}</Text>
+                                            <Text selectable={false} style={styles.detailValue}>{formatHourLabel(frontWeatherData.sunset)}</Text>
                                         </View>
                                     </View>
                                 </Animated.View>
@@ -468,8 +556,69 @@ export default function AboutScreen() {
                             <Text selectable={false} style={styles.loadingText}>Fetching forecast metadata...</Text>
                             )}
 
-                            {/* 3. Footer Action Hint */}
                             <Text selectable={false} style={styles.infotitle}>Asheville, NC</Text>
+                            </Animated.View>
+
+                            <Animated.View style={[styles.cardFace, styles.cardBack, backAnimatedStyle]}>
+                                <Text selectable={false} style={styles.title}>{userIP}</Text>
+                                <Text selectable={false} style={styles.subtitle}>Dearest Visitor</Text>
+                                {/* Mirror the weather section on the back face */}
+                                {backWeatherData ? (
+                                <View style={styles.weatherSection}>
+                                    <View style={styles.weatherGrid}>
+                                        <View style={[styles.weatherMetricItem, styles.weatherMetricItemCompact]}>
+                                            <Text selectable={false} style={styles.metricLabel}>Temp</Text>
+                                            <Text selectable={false} style={styles.metricValue}>{backWeatherData.tempF}°F</Text>
+                                        </View>
+
+                                        <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
+                                            <Text selectable={false} style={styles.metricLabel}>Condition</Text>
+                                            <Text selectable={false} style={styles.metricValue} numberOfLines={1}>{backWeatherData.conditionText}</Text>
+                                        </View>
+
+                                        <View style={[styles.weatherMetricItem, styles.weatherMetricItemWide]}>
+                                            <Text selectable={false} style={styles.metricLabel}>Local Time</Text>
+                                            <Text selectable={false} style={styles.metricValue}>{currentTime.split(' ')[0]}</Text>
+                                        </View>
+
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            onPress={() => setIsWeatherDetailsOpen((prev) => !prev)}
+                                            style={styles.weatherChevronButton}
+                                        >
+                                            <Text selectable={false} style={styles.weatherChevronText}>
+                                                {isWeatherDetailsOpen ? '⌃' : '⌄'}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+
+                                    <Animated.View style={[styles.weatherDetailsPanel, detailsAnimatedStyle]}>
+                                        <View style={styles.weatherDetailsGrid}>
+                                            <View style={styles.weatherDetailsColumn}>
+                                                <Text selectable={false} style={styles.detailLabel}>Clouds</Text>
+                                                <Text selectable={false} style={styles.detailValue}>{backWeatherData.cloudCover ?? 0}%</Text>
+                                            </View>
+                                            <View style={styles.weatherDetailsColumn}>
+                                                <Text selectable={false} style={styles.detailLabel}>Wind</Text>
+                                                <Text selectable={false} style={styles.detailValue}>{backWeatherData.windSpeed ?? 0} mph</Text>
+                                            </View>
+                                            <View style={styles.weatherDetailsColumn}>
+                                                <Text selectable={false} style={styles.detailLabel}>Sunrise</Text>
+                                                <Text selectable={false} style={styles.detailValue}>{formatHourLabel(backWeatherData.sunrise)}</Text>
+                                            </View>
+                                            <View style={styles.weatherDetailsColumn}>
+                                                <Text selectable={false} style={styles.detailLabel}>Sunset</Text>
+                                                <Text selectable={false} style={styles.detailValue}>{formatHourLabel(backWeatherData.sunset)}</Text>
+                                            </View>
+                                        </View>
+                                    </Animated.View>
+                                </View>
+                                ) : (
+                                <Text selectable={false} style={styles.loadingText}>Fetching forecast metadata...</Text>
+                                )}
+
+                                <Text selectable={false} style={styles.infotitle}>{userCity}, {userRegion}</Text>
+                            </Animated.View>
                         </Animated.View>
                     </GestureDetector>
                 </View>
@@ -487,10 +636,10 @@ const styles = StyleSheet.create({
         userSelect: 'none'
     },
     card: { 
-        backgroundColor: '#121212',
+        backgroundColor: 'transparent',
         width: 320,
         minHeight: 180, 
-        padding: 30, 
+        padding: 0, 
         borderRadius: 15, 
         shadowColor: '#000', 
         shadowOpacity: 0.1, 
@@ -580,7 +729,7 @@ const styles = StyleSheet.create({
     },
     weatherChevronText: {
         fontSize: 16,
-        color: '#bbff00',
+        color: '#8a99ad',
         fontWeight: '700',
         lineHeight: 16,
     },
@@ -637,5 +786,42 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
         position: 'relative',
+    },
+    cardFace: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        padding: 30,
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        backfaceVisibility: 'hidden',
+        backgroundColor: '#121212',
+        borderRadius: 15,
+    },
+    cardFront: {
+        zIndex: 2,
+    },
+    cardBack: {
+        zIndex: 1,
+    },
+    flipButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        zIndex: 10,
+    },
+    flipButtonCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    arrowText: {
+        color: '#8a99ad',
+        fontSize: 16,
+        fontWeight: '700',
     },
 });

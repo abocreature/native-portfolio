@@ -222,10 +222,10 @@ function colorFinder(hour: number, sunrise: number, sunset: number): number[] {
 
     let baseColor = DAYLIGHT; //Defaults to daylight
 
-    const sunriseStart = Math.max(0, sunrise - 1.5);
-    const sunriseEnd = Math.min(24, sunrise + 1.5);
-    const sunsetStart = Math.max(0, sunset - 1.5);
-    const sunsetEnd = Math.min(24, sunset + 1.5);
+    const sunriseStart = Math.max(0, sunrise - 0.1);
+    const sunriseEnd = Math.min(24, sunrise + 0.5);
+    const sunsetStart = Math.max(0, sunset - 0.5);
+    const sunsetEnd = Math.min(24, sunset + 0.1);
     //console.log (hour, sunriseStart, sunrise, sunriseEnd, sunsetStart, sunset, sunsetEnd);
 
     if (hour < sunriseStart) baseColor = NIGHT;
@@ -257,7 +257,6 @@ function colorFinder(hour: number, sunrise: number, sunset: number): number[] {
 
 export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime }) => {
     const { width, height } = useWindowDimensions();
-    const [canvasEpoch, setCanvasEpoch] = useState(0);
 
     const dynamicUniforms = useDerivedValue(() => {
         const [w, h] = u_resolution;
@@ -307,7 +306,7 @@ export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, targetTimezo
     if (!backgroundShader) return null;
 
     return (
-        <Canvas key={`sky-${canvasEpoch}`} style={{ width, height, position: 'absolute' }}>
+        <Canvas style={{ width, height, position: 'absolute' }}>
             <Box box={rect(0, 0, width, height)}>
                 <Shader source={backgroundShader} uniforms={dynamicUniforms} />
             </Box>
@@ -315,9 +314,20 @@ export const SkyCanvas: React.FC<SkyCanvasProps> = ({ u_resolution, targetTimezo
     );
 }
 
-export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime, cardX, cardY, cardWidth, cardHeight }) => {
+export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ 
+    u_resolution, 
+    targetTimezone, 
+    sunriseHour, 
+    sunsetHour, 
+    u_cloudCover, 
+    u_windSpeed, 
+    animTime, 
+    cardX, 
+    cardY, 
+    cardWidth, 
+    cardHeight,
+}) => {
     const { width, height } = useWindowDimensions();
-    const [canvasEpoch, setCanvasEpoch] = useState(0);
 
     if (!borderShader) return null;
 
@@ -355,6 +365,11 @@ export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ u_reso
         const angle = -((mockTime / 24) * 2 * Math.PI) + Math.PI / 2;
         const sunX = centerX + Math.cos(angle) * orbitRadius;
         const sunY = horizonY + Math.sin(angle) * orbitRadius;
+
+        const cx = cardX.value;
+        const cy = cardY.value;
+        const cw = cardWidth.value;
+        const ch = cardHeight.value;
         return {
             u_resolution: u_resolution,
             u_sunPos: [sunX, sunY],
@@ -362,13 +377,13 @@ export const BorderOverlayCanvas: React.FC<BorderOverlayCanvasProps> = ({ u_reso
             u_cloudCover: u_cloudCover.value,
             u_windSpeed: u_windSpeed.value,
             u_time: animTime.value, 
-            u_cardRect: [cardX.value, (cardY.value - cardHeight.value/2), cardWidth.value, cardHeight.value],
+            u_cardRect: [cx, (cy - ch/2), cw, ch],
             u_borderRadius: 15.0,
         };
     }, [cardX, cardY, cardWidth, cardHeight, u_resolution, targetTimezone, sunriseHour, sunsetHour, u_cloudCover, u_windSpeed, animTime]);
 
     return (
-        <Canvas key={`sky-${canvasEpoch}`} style={{ width, height, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
+        <Canvas style={{ width, height, position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
             <Box box={rect(0, 0, width, height)}>
                 <Shader source={borderShader} uniforms={dynamicCompositeUniforms} />
             </Box>

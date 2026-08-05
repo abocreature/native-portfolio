@@ -55,7 +55,8 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
         sharedWindSpeed.value = windSpeed;
         sharedSunsetHour.value = sunsetHour;
         sharedSunriseHour.value = sunriseHour;
-    }, [cloudCover, windSpeed, sunsetHour, sunriseHour]);
+        sharedTimezone.value = targetTimezone;
+    }, [cloudCover, windSpeed, sunsetHour, sunriseHour, targetTimezone]);
 
     useFrameCallback(() => {
         animTime.value += 0.01;
