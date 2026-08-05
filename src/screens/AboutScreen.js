@@ -258,6 +258,24 @@ export default function AboutScreen() {
             return null;
         };
 
+        const fetchWeatherApiWithTimeout = async (url, params, timeoutMs = 8000) => {
+            return new Promise((resolve, reject) => {
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('Weather fetch timed out'));
+                }, timeoutMs);
+
+                fetchWeatherApi(url, params)
+                    .then((result) => {
+                        clearTimeout(timeoutId);
+                        resolve(result);
+                    })
+                    .catch((error) => {
+                        clearTimeout(timeoutId);
+                        reject(error);
+                    });
+            });
+        };
+
         const fetchWeatherData = async (useIP = false) => {
             let targetLat = LATITUDE;
             let targetLong = LONGITUDE;
@@ -293,7 +311,7 @@ export default function AboutScreen() {
             };
 
             try {
-                const responses = await fetchWeatherApi('https://api.open-meteo.com/v1/forecast', params);
+                const responses = await fetchWeatherApiWithTimeout('https://api.open-meteo.com/v1/forecast', params);
                 const response = responses[0];
 
                 if (response && isMounted) {
@@ -367,7 +385,7 @@ export default function AboutScreen() {
         };
 
         fetchWeatherData(false);
-        fetchWeatherData(true)
+        fetchWeatherData(true);
         const weatherInterval = setInterval(() => {
             fetchWeatherData(false);
             fetchWeatherData(true);
