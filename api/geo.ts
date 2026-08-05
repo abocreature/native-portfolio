@@ -24,7 +24,7 @@ export default async function handler(request: Request) {
     status: 200,
     headers: {
       'content-type': 'application/json',
-      'cache-control': 'public, max-age=0, s-maxage=86400', // Prevents double-fetching
+      'cache-control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0', // Massive privacy issue, we cannot save approximate location information on the server
     },
   });
 }

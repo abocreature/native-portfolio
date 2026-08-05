@@ -234,24 +234,19 @@ export default function AboutScreen() {
     useEffect(() => {
         let isMounted = true; // To prevent state updates if the component unmounts
 
-        const parseApiTimeToDecimalHours = (value) => {
-            if (typeof value === 'bigint') {
-                // Convert BigInt to standard JavaScript number safely
-                value = Number(value); 
-            }
-            
-            if (typeof value === 'number' && Number.isFinite(value)) {
-                const asDate = new Date(value * 1000);
-                if (!Number.isNaN(asDate.getTime())) {
-                    return asDate.getHours() + (asDate.getMinutes() / 60) + (asDate.getSeconds() / 3600);
-                }
-            }
+        const parseApiTimeToDecimalHours = (value, utcOffsetSeconds = 0) => {
+            if (value === null || value === undefined) return null;
 
-            if (typeof value === 'string') {
-                const match = value.match(/T(\d{2}):(\d{2})(?::(\d{2}))?/);
-                if (match) {
-                    const [, hours, minutes, seconds = '0'] = match;
-                    return Number(hours) + Number(minutes) / 60 + Number(seconds) / 3600;
+            // Convert BigInt instances coming from valuesInt64 safely to a standard number
+            let rawSeconds = typeof value === 'bigint' ? Number(value) : Number(value);
+
+            if (Number.isFinite(rawSeconds)) {
+                const adjustedSeconds = rawSeconds + utcOffsetSeconds;
+                
+                const asDate = new Date(adjustedSeconds * 1000);
+                
+                if (!Number.isNaN(asDate.getTime())) {
+                    return asDate.getUTCHours() + (asDate.getUTCMinutes() / 60) + (asDate.getUTCSeconds() / 3600);
                 }
             }
 
@@ -374,8 +369,9 @@ export default function AboutScreen() {
                     const cloudCover = current?.variables(3)?.value();
                     const windSpeed = current?.variables(4)?.value();
 
-                    const parsedSunrise = parseApiTimeToDecimalHours(daily?.variables(0)?.valuesInt64(0));
-                    const parsedSunset = parseApiTimeToDecimalHours(daily?.variables(1)?.valuesInt64(0));
+                    const utcOffsetSeconds = response.utcOffsetSeconds();
+                    const parsedSunrise = parseApiTimeToDecimalHours(daily?.variables(0)?.valuesInt64(0), utcOffsetSeconds);
+                    const parsedSunset = parseApiTimeToDecimalHours(daily?.variables(1)?.valuesInt64(0), utcOffsetSeconds);
 
                     // Open-Meteo uses WMO Weather Interpretation Codes https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM
                     const code = weatherCode ?? 0;
