@@ -258,31 +258,17 @@ export default function AboutScreen() {
             return null;
         };
 
-        const fetchWeatherApiWithTimeout = async (url, params, timeoutMs = 8000) => {
-            return new Promise((resolve, reject) => {
-                const timeoutId = setTimeout(() => {
-                    reject(new Error('Weather fetch timed out'));
-                }, timeoutMs);
-
-                fetchWeatherApi(url, params)
-                    .then((result) => {
-                        clearTimeout(timeoutId);
-                        resolve(result);
-                    })
-                    .catch((error) => {
-                        clearTimeout(timeoutId);
-                        reject(error);
-                    });
-            });
-        };
-
         const fetchWeatherData = async (useIP = false) => {
             let targetLat = LATITUDE;
             let targetLong = LONGITUDE;
 
-            if (useIP) {
+            /*if (useIP) {
                 try {
-                    const geoResponse = await fetch('https://ipapi.co/json/');
+                    const controller = new AbortController();
+                    const timeoutID = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+
+                    const geoResponse = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+                    clearTimeout(timeoutID);
                     if (geoResponse.ok) {
                         const geoData = await geoResponse.json();
                         if (geoData.ip && isMounted) setUserIP(geoData.ip);
@@ -296,6 +282,68 @@ export default function AboutScreen() {
                     }
                 } catch (geoError) {
                     console.error('IP lookup blocked or failed, falling back to static boundaries:', geoError);
+                }
+            }*/
+            /*if (useIP && typeof navigator !== 'undefined' && navigator.geolocation) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                    });
+                    targetLat = position.coords.latitude;
+                    targetLong = position.coords.longitude;
+                    
+                    if (isMounted) {
+                        setUserIP('GPS Enabled');
+                        setUserRegion('Current Location');
+                    }
+                } catch (geoError) {
+                    console.error('Geolocation declined or timed out:', geoError);
+                    if (isMounted) {
+                        setUserIP('GPS Disabled');
+                        setUserRegion('Default Location');
+                    }
+                }
+            }*/
+            if (useIP) {
+                try {
+                    const geoResponse = await fetch('/api/geo');
+                    
+                    if (geoResponse.ok) {
+                        const geoData = await geoResponse.json();
+                        
+                        if (geoData && isMounted) {
+                            // Read the keys directly from your fresh, custom local endpoint schema
+                            if (geoData.ip) {
+                                setUserIP(geoData.ip);
+                            }
+                            
+                            const city = geoData.city || '';
+                            const region = geoData.region || '';
+                            setUserCity(city ?? 'Current View');
+                            setUserRegion(region ?? '');
+
+                            const parsedLat = geoData.latitude;
+                            const parsedLong = geoData.longitude;
+
+                            if (!Number.isNaN(parsedLat) && Number.isFinite(parsedLat) &&
+                                !Number.isNaN(parsedLong) && Number.isFinite(parsedLong)) {
+                                targetLat = parsedLat;
+                                targetLong = parsedLong;
+                            }
+                        }
+
+                        console.log("Geo Repsonse OK!");
+                        console.log(geoData.ip);
+                    } else {
+                        console.warn('Local location endpoint returned non-OK status code:', geoResponse.status);
+                    }
+                } catch (geoError) {
+                    console.warn('Local API network lookup failed, routing static coordinates:', geoError);
+                    if (isMounted) {
+                        setUserIP('Offline / Unavailable');
+                        setUserCity('Static View');
+                        setUserRegion('');
+                    }
                 }
             }
 
@@ -311,7 +359,7 @@ export default function AboutScreen() {
             };
 
             try {
-                const responses = await fetchWeatherApiWithTimeout('https://api.open-meteo.com/v1/forecast', params);
+                const responses = await fetchWeatherApi('https://api.open-meteo.com/v1/forecast', params);
                 const response = responses[0];
 
                 if (response && isMounted) {
@@ -356,7 +404,7 @@ export default function AboutScreen() {
                     else if (code == 95) conditionText = 'Thunderstorm';
                     else if (code >= 96) conditionText = 'Hailstorm';
 
-                    setWeatherData({
+                    const payload = {
                         tempF: Math.round(temperature ?? 0),
                         conditionText,
                         isDay: isDay === 1,
@@ -365,13 +413,17 @@ export default function AboutScreen() {
                         sunrise: parsedSunrise ?? 6.5,
                         sunset: parsedSunset ?? 18.5,
                         timezone: timezone ?? 'America/New_York',
-                    });
+                    };
 
                     if (useIP) {
-                        setBackWeatherData(weatherData);
+                        setBackWeatherData(payload);
                     } else {
-                        setFrontWeatherData(weatherData);
+                        setFrontWeatherData(payload);
                     }
+
+                    console.log(`Open-Meteo API completed successfully for useIP=${useIP}`);
+                    if (useIP) console.log("Back Weather Paylod:", payload);
+                    else console.log("Front Weather Payload:", payload);
                 } else {
                     console.error('Open-Meteo returned no response');
                 }
@@ -578,8 +630,8 @@ export default function AboutScreen() {
                             </Animated.View>
 
                             <Animated.View style={[styles.cardFace, styles.cardBack, backAnimatedStyle]}>
-                                <Text selectable={false} style={styles.title}>{userIP}</Text>
-                                <Text selectable={false} style={styles.subtitle}>Dearest Visitor</Text>
+                                <Text selectable={false} style={styles.title}>Dearest Visitor</Text>
+                                <Text selectable={false} style={styles.subtitle}>{userIP}</Text>
                                 {/* Mirror the weather section on the back face */}
                                 {backWeatherData ? (
                                 <View style={styles.weatherSection}>
