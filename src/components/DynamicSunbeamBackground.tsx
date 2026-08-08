@@ -52,7 +52,7 @@ export const DynamicSunbeamBackground: React.FC<SunbeamProps> = ({
 
     useEffect(() => {
         sharedCloudCover.value = cloudCover / 100;
-        sharedCloudCover.value = 0.5;
+        //sharedCloudCover.value = 0.5;
         sharedWindSpeed.value = windSpeed;
         sharedSunsetHour.value = sunsetHour;
         sharedSunriseHour.value = sunriseHour;
