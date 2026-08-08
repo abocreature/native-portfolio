@@ -48,7 +48,7 @@ const BACKGROUND_SOURCE = `
 
         // Sun Intensity
         float distToSun = length(pos - u_sunPos) / maxScale;
-        float gradientSharpness = 2.2;
+        float gradientSharpness = 1.8;
         float atmosphericGlow = pow(smoothstep(gradientSharpness, 0.0, distToSun), gradientSharpness) * 3;
 
         // Using this to find the relative height of the sun and turning that into a 0.0 to 1.0 range
@@ -85,24 +85,27 @@ const BACKGROUND_SOURCE = `
 
         // Cloud Generation
         float cloudSize = 3.0;
+        float cloudSharpness = 0.15;
         vec2 cloudUV = uv * cloudSize + windOffset;
         float cloudNoise = fbm(cloudUV);
         float dynamicCoverage;
         if (u_cloudCover < 0.5) dynamicCoverage = pow(u_cloudCover * 2, 0.4) * 0.5; // Stretches low-end range to avoid threshold drop-off
         else dynamicCoverage = u_cloudCover;
         float cloudThreshold = 1.0 - dynamicCoverage; //Threshold from 1.0 to 0.0, lower means more clouds
-        float cloudDensity = smoothstep(cloudThreshold - 0.15, cloudThreshold + 0.15, cloudNoise);
+        float cloudDensity = smoothstep(cloudThreshold - cloudSharpness, cloudThreshold + cloudSharpness, cloudNoise);
 
         // Cloud Shadow Generation for fake volume
+        float shadowSharpness = 0.15;
         vec2 sunDir = normalize((u_sunPos - pos) / maxScale);
         vec2 shadowOffset = sunDir * 0.1;
         float shadowNoise = fbm(cloudUV - shadowOffset);
         float shadowThreshold = mix(cloudThreshold, 0.55, u_cloudCover);
-        float deepDensity = smoothstep(shadowThreshold - 0.15, shadowThreshold + 0.15, shadowNoise);
+        float deepDensity = smoothstep(shadowThreshold - shadowSharpness, shadowThreshold + shadowSharpness, shadowNoise);
 
         // Cloud Coloring
         vec3 cloudCoreColor = mix(vec3(0.35, 0.36, 0.4) + u_sunColor*0.4, vec3(0.05, 0.07, 0.12), dayFactor);
-        vec3 cloudBaseColor = mix(vec3(0.25, 0.28, 0.35) + u_sunColor*0.4, vec3(0.08, 0.11, 0.18) + u_sunColor * 0.1, dayFactor);
+        vec3 cloudBaseColor = mix(vec3(0.25, 0.28, 0.35) + u_sunColor*0.3, vec3(0.08, 0.11, 0.18) + u_sunColor*0.1, dayFactor);
+        cloudBaseColor = mix(cloudBaseColor, u_sunColor, atmosphericGlow);
         vec3 cloudHighlight = mix(u_sunColor, vec3(1.5, 1.5, 1.55), 0.3);
         float selfShadow = clamp(cloudDensity - deepDensity, 0.0, 1.0);
         vec3 cloudInternalStructure = mix(cloudBaseColor, cloudCoreColor, cloudDensity);
