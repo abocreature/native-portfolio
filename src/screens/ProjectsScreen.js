@@ -20,42 +20,50 @@ import Animated, {
     withTiming,
     interpolateColor,
 } from 'react-native-reanimated';
-import { supabase } from '../services/supabase';
+//import { supabase } from '../services/supabase';
 
 import ProjectChatBot from '../components/ProjectChatBot';
 
 const PROJECT_DATA = [
     {
         id: '1',
+        title: 'Neighborhood Foodshare',
+        tech: 'React Native • Expo • Node.js • PostgreSQL',
+        link: 'https://github.com/abocreature/neighborhood-foodshare',
+        owner: 'abocreature',
+        repo_name: 'neighborhood-foodshare'
+    },
+    {
+        id: '2',
         title: 'This Portfolio!',
         tech: 'React Native • Expo • Node.js • GitHub API',
         link: 'https://github.com/abocreature/native-portfolio',
         owner: 'abocreature',
-        repo: 'native-portfolio'
+        repo_name: 'native-portfolio'
     },
     { 
-        id: '2', 
+        id: '3', 
         title: 'Entangled Philosophies', 
         tech: 'MySQL • PHP • React • Node.js', 
         link: 'https://github.com/mitchswise/Entangled-Philosophies',
         owner: 'mitchswise',
-        repo: 'Entangled-Philosophies'
+        repo_name: 'Entangled-Philosophies'
     },
     { 
-        id: '3', 
+        id: '4', 
         title: 'MyRecipeBook', 
         tech: 'MongoDB • Express • React • Node.js', 
         link: 'https://github.com/COP4331C-SUMMER2020/ProjectTwo',
         owner: 'COP4331C-SUMMER2020',
-        repo: 'ProjectTwo' 
+        repo_name: 'ProjectTwo' 
     },
     { 
-        id: '4', 
+        id: '5', 
         title: 'Contact Manager', 
         tech: 'Linux • Apache • MySQL • PHP', 
         link: 'https://github.com/COP4331C-SUMMER2020/ProjectOne',
         owner: 'COP4331C-SUMMER2020',
-        repo: 'ProjectOne' 
+        repo_name: 'ProjectOne' 
     }
 ];
 
@@ -115,11 +123,11 @@ export default function ProjectsScreen() {
     const [activeRepoName, setActiveRepoName] = useState('');
     const [hasSelectedRepo, setHasSelectedRepo] = useState(false);
 
-    const [projects, setProjects] = useState([]);
-    const [isProjectLoading, setIsProjectLoading] = useState('');
+    const [projects, setProjects] = useState(PROJECT_DATA);
+    //const [isProjectLoading, setIsProjectLoading] = useState('');
     const [error, setError] = useState(null);
 
-    useEffect(() => {
+    /*useEffect(() => {
         async function fetchProjects() {
             try {
                 setIsProjectLoading(true);
@@ -138,7 +146,7 @@ export default function ProjectsScreen() {
         }
 
         fetchProjects();
-    }, []);
+    }, []);*/
 
     // Downloads the readme as a string from server endpoints
     const fetchReadme = async (rawOwner, rawRepo) => {
@@ -149,8 +157,8 @@ export default function ProjectsScreen() {
         setActiveRepoName(repo);
         setHasSelectedRepo(true);
 
-        const primaryURL = `https://raw.githubusercontent.com/${owner}/${repo}/main/README.md`;
-        const fallbackURL = `https://raw.githubusercontent.com/${owner}/${repo}/master/README.md`;
+        const primaryURL = `https://raw.githubusercontent.com/${owner}/${repo}/master/README.md`;
+        const fallbackURL = `https://raw.githubusercontent.com/${owner}/${repo}/main/README.md`;
 
         try {
             let response = await fetch(primaryURL);
@@ -172,7 +180,7 @@ export default function ProjectsScreen() {
         }
     };
 
-    if (isProjectLoading) {
+    /*if (isProjectLoading) {
         return (
             <View style={styles.container}>
                 <ActivityIndicator size="large" color="#007AFF" />
@@ -186,7 +194,7 @@ export default function ProjectsScreen() {
                 <Text style={{ color: 'red' }}>Error loading projects: {error}</Text>
             </View>
         );
-    }
+    }*/
 
     return (
         <SafeAreaView style={styles.container}>

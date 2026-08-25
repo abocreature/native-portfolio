@@ -12,7 +12,6 @@ A high-performance, cross-platform portfolio application engineered with React N
 
 - **Core Framework:** [React Native](https://reactnative.dev) & [React Native for Web](https://github.io) (Single codebase compilation for Mobile + Desktop browsers)
 - **Workflow & Build Tool:** [Expo Workflow](https://expo.dev) (SDK 51+)
-- **Serverless Backend & Database (BaaS):** [Supabase](https://supabase.com) (Cloud-hosted PostgreSQL database leveraged via automated REST API generation)
 - **High-Performance Physics & Animation:** 
   - [React Native Reanimated](https://swmansion.com) (Damped harmonic spring oscillators and native-thread `useFrameCallback` loops)
   - [React Native Gesture Handler](https://swmansion.com) (Low-latency native `Pan` and `Tap` tracking)
@@ -27,7 +26,6 @@ A high-performance, cross-platform portfolio application engineered with React N
 
 ## 🚀 Key Architectural Features
 
-- **Serverless PostgreSQL Content Delivery:** Decoupled static project arrays into a cloud-hosted Supabase database layer. Leverages the Supabase JS client to execute asynchronous network queries, using Row Level Security (RLS) policies to allow safe public read access to active data.
 - **Performance-Optimized Rendering:** Built utilizing native `FlatList` component architectures to ensure smooth scrolling performance over massive arrays of object data.
 - **Dynamic SafeArea Tracking:** Incorporates device-specific context hooks (`react-native-safe-area-context`) to safely adapt layout components around physical camera notches and status indicators.
 - **Deep Linking Engine:** Integrated system hooks leverage the native phone `Linking` interface to seamlessly route users from the UI straight out into external public GitHub repositories.
@@ -49,8 +47,14 @@ Computes real-time daylight progression, cloud cover density, and light dispersi
 ### 2. Volumetric Highlight Card Shader (FOREGROUND_SOURCE)
 Applies specialized directional lighting and localized bloom highlights strictly within a specified sub-region, reducing unnecessary pixel iteration:
 - **Symmetric Signed Distance Field (SDF):** Computes exact physical distance boundaries for rounded rectangles using a standard vector boundary box check (sdRoundRect).
-- **Dynamic Highlight Realignment:** Checks the vector dot product of pixel angles (dot(pixelDir, lightDir)) against the sun's live tracking system to cast brilliant white reflection blooms (vec3(1.6)) onto card edges facing the light source.
+- **Dynamic Highlight Realignment:** Checks the vector dot product of pixel angles (dot(pixelDir, lightDir)) against the sun's live tracking system to cast reflection blooms (vec3(1.6)) onto card edges facing the light source.
 - **Localized Alpha Gradients:** Masks the output visibility between -15px outside and +6px inside the object perimeter, rendering complex alpha highlights (bloomGlowFalloff) strictly around targeted elements while remaining transparent elsewhere.
+
+### 3. Volumetric Cloud System
+Generates an infinite, organic skybox using dynamic multi-frequency noise fields coupled with real-time surface vector shading:
+- **Infinite-Continuous Noise Map:** Leverages an optimized, high-frequency procedural Fractal Brownian Motion (FBM) hash algorithm (`dot(p, p + 45.32)`) that scales continuously with an uninterrupted hardware clock loop (`animTime`).
+- **Central-Difference Normal Mapping:** Samples the composite cloud density map at micro-offsets (`±0.08`) along both axes to calculate absolute 3D surface slope tangents natively on the GPU core. This maps smooth volumetric lighting gradients that stay puffy and convex throughout the entire afternoon transit.
+- **Meteorological Occlusion & Tinting:** Factors live weather data feeds into the blending stack by scaling a dynamic cloud factor property. When overcast conditions peak, the system applies a sub-interpolation pass that shifts direct sunlit tones into a muted Stormy Gray (`[0.45, 0.5, 0.6]`) profile, smoothly dampening ambient reflections by up to 70%.
 
 ---
 
