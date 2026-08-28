@@ -62,6 +62,17 @@ This portfolio is built as an AI-native React Native Web application. It runs na
   * Modular frontend architecture handling atomic user session state, asynchronous API interactions, and responsive UI modifications via localized JavaScript scripts.
 - **Technical Hurdles Overcome:** Eliminated monolithic state bindings and tight server couplings by implementing standard JSON payloads as an interoperability protocol. This abstraction separated layout and presentations from backend server functions, protecting database security and streamlining concurrent client requests.
 
+## Project 5: Stan's Pantry
+- **Repository URL:** https://github.com
+- **Core Tech Stack:** React Native, Expo, Vercel, serverless PostgreSQL, Supabase Auth.
+- **System Overview:** A live-deployed, cross-platform logistics and menu coordination app engineered for a localized community meal delivery operation. The system utilizes role-based authentication architectures to handle atomic state navigation and data multi-tenancy securely from a single, unified codebase.
+- **Key Engineering Features:**
+  * **Automated Profile Triggers:** Implements an internal PostgreSQL database trigger (`handle_new_user()`) that intercepts secure Supabase Auth registrations to automatically map multi-field user metadata (full name, address, and phone number) directly into the public schema database layers.
+  * **O(1) State Lookup Indexing:** Rather than wasting mobile processor cycles looping through large array mutations repeatedly, active customer claims are cached inside a structured components state dictionary (`{ [mealId]: { orderId, portions } }`) on initial load to guarantee constant-time lookups.
+  * **Role-Based Row-Level Security (RLS):** Implements defensive data privacy rules across server tables, locking down all public schemas so neighbors can only read and mutate their own specific order allocations, while the authenticated `'chef'` role holds comprehensive manifest oversight.
+  * **Cross-Platform Primitives:** Replaced heavy third-party code bundles with native browser HTML5 calendar widgets and absolute-positioned event responder boundaries, reducing the production payload size while maintaining a responsive, centered design layout on web and mobile viewports.
+- **Technical Hurdles Overcome:** Mitigated rigid data availability barriers and low-participation friction by completely refactoring the database away from static, maximum inventory threshold boundaries. The database was streamlined into an elastic, request-driven manifestation pipeline—handling multi-portion ordering dynamically for app users while seamlessly accommodating offline neighbors.
+
 ---
 
 ## Behavioral Guardrails & Persona Matrix

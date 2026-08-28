@@ -27,8 +27,9 @@ import ProjectChatBot from '../components/ProjectChatBot';
 const PROJECT_DATA = [
     {
         id: '1',
-        title: 'Neighborhood Foodshare',
+        title: `Stan's Pantry`,
         tech: 'React Native • Expo • Node.js • PostgreSQL',
+        description: 'A real-time, cross-platform dinner manifest and logistics application for a local foodsharing business.',
         link: 'https://github.com/abocreature/neighborhood-foodshare',
         owner: 'abocreature',
         repo_name: 'neighborhood-foodshare'
@@ -37,6 +38,7 @@ const PROJECT_DATA = [
         id: '2',
         title: 'This Portfolio!',
         tech: 'React Native • Expo • Node.js • GitHub API',
+        description: 'A personal portfolio website featuring a custom Skia Canvas background, realtime local weather, and an AI assistant.',
         link: 'https://github.com/abocreature/native-portfolio',
         owner: 'abocreature',
         repo_name: 'native-portfolio'
@@ -45,6 +47,7 @@ const PROJECT_DATA = [
         id: '3', 
         title: 'Entangled Philosophies', 
         tech: 'MySQL • PHP • React • Node.js', 
+        description: 'University final project for the University of Hildesheim, helping manage and access a large database of scholarly work.',
         link: 'https://github.com/mitchswise/Entangled-Philosophies',
         owner: 'mitchswise',
         repo_name: 'Entangled-Philosophies'
@@ -53,6 +56,7 @@ const PROJECT_DATA = [
         id: '4', 
         title: 'MyRecipeBook', 
         tech: 'MongoDB • Express • React • Node.js', 
+        description: 'A student project made to build local community recipe books to draw people closer to their neighbors.',
         link: 'https://github.com/COP4331C-SUMMER2020/ProjectTwo',
         owner: 'COP4331C-SUMMER2020',
         repo_name: 'ProjectTwo' 
@@ -61,6 +65,7 @@ const PROJECT_DATA = [
         id: '5', 
         title: 'Contact Manager', 
         tech: 'Linux • Apache • MySQL • PHP', 
+        description: 'A student project and basic contact manager.',
         link: 'https://github.com/COP4331C-SUMMER2020/ProjectOne',
         owner: 'COP4331C-SUMMER2020',
         repo_name: 'ProjectOne' 

@@ -1,4 +1,4 @@
-# 📱 React Native Cross-Platform Portfolio
+# React Native Cross-Platform Portfolio
 
 A high-performance, cross-platform portfolio application engineered with React Native, Expo, and React Native for Web. This project features custom gesture-driven physics engines, and a real-time Markdown document reader across iOS, Android, and Desktop Browser layouts.
 
@@ -8,7 +8,7 @@ A high-performance, cross-platform portfolio application engineered with React N
 
 ---
 
-## 🛠️ Built With
+## Built With
 
 - **Core Framework:** [React Native](https://reactnative.dev) & [React Native for Web](https://github.io) (Single codebase compilation for Mobile + Desktop browsers)
 - **Workflow & Build Tool:** [Expo Workflow](https://expo.dev) (SDK 51+)
@@ -24,7 +24,7 @@ A high-performance, cross-platform portfolio application engineered with React N
 
 ---
 
-## 🚀 Key Architectural Features
+## Key Architectural Features
 
 - **Performance-Optimized Rendering:** Built utilizing native `FlatList` component architectures to ensure smooth scrolling performance over massive arrays of object data.
 - **Dynamic SafeArea Tracking:** Incorporates device-specific context hooks (`react-native-safe-area-context`) to safely adapt layout components around physical camera notches and status indicators.
@@ -34,7 +34,7 @@ A high-performance, cross-platform portfolio application engineered with React N
 
 ---
 
-## 🔬 Custom Shader Implementation Details
+## Custom Shader Implementation Details
 
 The visual environment is driven by two custom Skia fragment shaders that compute lighting dynamics on every pixel at runtime:
 
@@ -58,7 +58,7 @@ Generates an infinite, organic skybox using dynamic multi-frequency noise fields
 
 ---
 
-## 💻 Local Development Setup
+## Local Development Setup
 
 Follow these steps to run this codebase locally on your machine:
 
