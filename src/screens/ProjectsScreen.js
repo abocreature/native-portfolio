@@ -129,29 +129,7 @@ export default function ProjectsScreen() {
     const [hasSelectedRepo, setHasSelectedRepo] = useState(false);
 
     const [projects, setProjects] = useState(PROJECT_DATA);
-    //const [isProjectLoading, setIsProjectLoading] = useState('');
     const [error, setError] = useState(null);
-
-    /*useEffect(() => {
-        async function fetchProjects() {
-            try {
-                setIsProjectLoading(true);
-                const { data, error } = await supabase
-                    .from('projects')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
-                if (error) throw error;
-                setProjects(data);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setIsProjectLoading(false);
-            }
-        }
-
-        fetchProjects();
-    }, []);*/
 
     // Downloads the readme as a string from server endpoints
     const fetchReadme = async (rawOwner, rawRepo) => {
@@ -184,22 +162,6 @@ export default function ProjectsScreen() {
             setIsLoading(false);
         }
     };
-
-    /*if (isProjectLoading) {
-        return (
-            <View style={styles.container}>
-                <ActivityIndicator size="large" color="#007AFF" />
-            </View>
-        );
-    }
-
-    if (error) {
-        return (
-            <View style={styles.container}>
-                <Text style={{ color: 'red' }}>Error loading projects: {error}</Text>
-            </View>
-        );
-    }*/
 
     return (
         <SafeAreaView style={styles.container}>
@@ -346,7 +308,6 @@ const styles = StyleSheet.create({
         width: '100%',
     },
 
-    // Combined common button styling
     baseBtn: {
         flex: 1,
         borderWidth: 1,

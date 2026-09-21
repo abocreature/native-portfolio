@@ -52,7 +52,7 @@ export default async function handler(req, res) {
             parts: [{ text: msg.content }]
         }));
 
-        // 4. Serialize data payload into a raw JSON transmission block string
+        // Serialize data payload into a raw JSON block
         const jsonPayload = JSON.stringify({
             contents: formattedContents,
             systemInstruction: {
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
 
         const apiKey = process.env.GEMINI_API_KEY;
         
-        // 5. Explicit structural definition targeting the raw Google Gemini HTTP Endpoints
+        // Explicit structural definition targeting the raw  Gemini Endpoints
         const networkOptions = {
             hostname: 'generativelanguage.googleapis.com',
             path: `/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
@@ -75,11 +75,11 @@ export default async function handler(req, res) {
             headers: {
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(jsonPayload),
-                'Connection': 'close' // Forces the raw TCP connection pipeline closed on fulfillment
+                'Connection': 'close' 
             }
         };
 
-        // 6. Spawn the secure transport outbox request using Node's native network layer
+        // Spawn the secure transport outbox request using Node's native network layer
         const outboundRequest = https.request(networkOptions, (incomingStream) => {
             const bodyChunks = [];
             
@@ -117,7 +117,7 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: "System gateway communication failure." });
         });
 
-        // 7. Write payload data buffer and explicitly drop the socket handle to kill memory leak loops
+        // Write payload data buffer and explicitly drop the socket handle to kill memory leak loops
         outboundRequest.write(jsonPayload);
         outboundRequest.end();
 

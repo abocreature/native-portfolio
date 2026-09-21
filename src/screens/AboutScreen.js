@@ -182,6 +182,7 @@ export default function AboutScreen() {
     const [weatherData, setWeatherData] = useState(null);
     const [isWeatherLoading, setIsWeatherLoading] = useState(true);
 
+    // Animation easing for opening the detailed weather panel
     useEffect(() => {
         detailsHeight.value = withTiming(isWeatherDetailsOpen ? 40 : 0, {
             duration: 220,
@@ -256,49 +257,6 @@ export default function AboutScreen() {
         const fetchWeatherData = async (useIP = false) => {
             let targetLat = LATITUDE;
             let targetLong = LONGITUDE;
-
-            /*if (useIP) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutID = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
-
-                    const geoResponse = await fetch('https://ipapi.co/json/', { signal: controller.signal });
-                    clearTimeout(timeoutID);
-                    if (geoResponse.ok) {
-                        const geoData = await geoResponse.json();
-                        if (geoData.ip && isMounted) setUserIP(geoData.ip);
-                        if (geoData.city && isMounted) setUserCity(geoData.city);
-                        if (geoData.region && isMounted) setUserRegion(geoData.region);
-                        if (typeof geoData.latitude === 'number' && typeof geoData.longitude === 'number') {
-                            targetLat = geoData.latitude;
-                            targetLong = geoData.longitude;
-                            console.log('IP lat:', targetLat, 'IP long:', targetLong);
-                        }
-                    }
-                } catch (geoError) {
-                    console.error('IP lookup blocked or failed, falling back to static boundaries:', geoError);
-                }
-            }*/
-            /*if (useIP && typeof navigator !== 'undefined' && navigator.geolocation) {
-                try {
-                    const position = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-                    });
-                    targetLat = position.coords.latitude;
-                    targetLong = position.coords.longitude;
-                    
-                    if (isMounted) {
-                        setUserIP('GPS Enabled');
-                        setUserRegion('Current Location');
-                    }
-                } catch (geoError) {
-                    console.error('Geolocation declined or timed out:', geoError);
-                    if (isMounted) {
-                        setUserIP('GPS Disabled');
-                        setUserRegion('Default Location');
-                    }
-                }
-            }*/
             if (useIP) {
                 try {
                     const geoResponse = await fetch('/api/geo');
@@ -567,7 +525,6 @@ export default function AboutScreen() {
                             <Animated.View style={[styles.cardFace, styles.cardFront, frontAnimatedStyle]}>
                                 <Text selectable={false} style={styles.title}>Abigail Sutrich</Text>
                                 <Text selectable={false} style={styles.subtitle}>Full-Stack Software Engineer</Text>
-                            {/* 2. NEW: Integrated Real-Time OpenMeteo Weather Widget Sub-Grid */}
                             {frontWeatherData ? (
                             <View style={styles.weatherSection}>
                                 <View style={styles.weatherGrid}>

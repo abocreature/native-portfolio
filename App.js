@@ -25,7 +25,7 @@ const navigationTheme = {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{flex:1, backgroundColor:'#121212'}}>
+    <GestureHandlerRootView style={{flex:1, backgroundColor:'#121212'}}> {/* Wrap the app in GestureHandlerRootView to enable card flick */}
       <NavigationContainer
         theme={navigationTheme}
         documentTitle={{
@@ -73,7 +73,7 @@ export default function App() {
           <Tab.Screen name="Projects" component={ProjectsScreen} />
         </Tab.Navigator>
       </NavigationContainer>
-      <Analytics />
+      <Analytics /> {/* Vercel Analytics component */}
     </GestureHandlerRootView>
   );
 }
