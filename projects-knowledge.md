@@ -8,14 +8,14 @@ Primary Framework Context: React Native Web, Expo, Cross-Platform Architecture, 
 This portfolio is built as an AI-native React Native Web application. It runs natively across mobile ecosystems and compiles directly into a high-performance web bundle deployed via Vercel Serverless Functions. 
 
 - **Frontend Runtime:** React Native (Expo SDK) with optimized web fallback layout primitives (`View`, `Text`, `FlatList`).
-- **AI Infrastructure:** Local backend routing handled via Vercel Edge/Serverless functions streaming to OpenAI (`gpt-4o-mini`).
+- **AI Infrastructure:** Local backend routing handled via Vercel Edge/Serverless functions streaming to Google Gemini (`gemini-3.5-flash`).
 - **State Management:** React Context API / Hooks handling atomic app state.
 
 ---
 
 ## Project 1: Native Portfolio (This Portfolio)
 - **Repository URL:** https://github.com/abocreature/native-portfolio
-- **Core Tech Stack:** React Native, Expo, Vercel, OpenAI Assistants API, OpenMeteo API.
+- **Core Tech Stack:** React Native, Expo, Vercel, Google Gemini API, OpenMeteo API.
 - **System Overview:** A hyper-performant, responsive cross-platform portfolio application engineered using React Native Web to guarantee consistent component rendering on both desktop browsers and mobile screen layouts.
 - **Key Engineering Features:**
   * Custom Vercel serverless integration allowing robust client-side streaming while keeping system API keys entirely hidden from the frontend bundle.

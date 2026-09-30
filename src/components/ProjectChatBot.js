@@ -41,7 +41,13 @@ export default function ProjectChatBot() {
                 body: JSON.stringify({ messages: apiPayload }),
             });
 
-            const data = await response.json();
+            const text = await response.text();
+
+            console.log('API status:', response.status);
+            console.log('API content type:', response.headers.get('content-type'));
+            console.log('API response:', text);
+
+            const data = JSON.parse(text);
 
             if (data.response) {
                 setMessages(prev => [...prev, { id: String(Date.now() + 1), role: 'assistant', content: data.response }]);

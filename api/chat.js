@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).jsaon({ error: 'Method not allowed' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
         const { messages } = req.body;
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
                     return res.status(200).json({ response: outputStringText });
                 } catch (parsingException) {
                     console.error("Failed to compile incoming streaming buffer data:", parsingException);
-                    console.error("Raw response that failed parsing was:", analyticalBuffer.substring(0, 500));
+                    console.error("Raw response that failed parsing was:", parsedPayload.substring(0, 500));
                     return res.status(500).json({ error: "Invalid layout data returned from the core AI module." });
                 }
             });
